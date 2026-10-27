@@ -75,12 +75,7 @@ def upgrade() -> None:
         )
         UPDATE users u
         SET xp_total = r.new_total,
-            level = CASE
-                WHEN r.new_total >= 10000 THEN 50
-                WHEN r.new_total >= 300 THEN 3
-                WHEN r.new_total >= 100 THEN 2
-                ELSE 1
-            END
+            level = LEAST(50, GREATEST(1, FLOOR(0.5 + SQRT(0.25 + 2.0 * r.new_total / 100.0))::INTEGER))
         FROM (
             SELECT u.id AS user_id, COALESCE(SUM(t.amount), 0) AS new_total
             FROM users u
