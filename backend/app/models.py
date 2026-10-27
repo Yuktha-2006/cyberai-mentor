@@ -9,7 +9,7 @@ from enum import Enum as PyEnum
 
 from sqlalchemy import (
     Boolean, Column, DateTime, Enum, ForeignKey, Index,
-    Integer, Numeric, String, Text, UniqueConstraint, CheckConstraint, JSON, Uuid as UUID
+    Integer, Numeric, String, Text, UniqueConstraint, CheckConstraint, JSON, Uuid as UUID, text
 )
 from sqlalchemy.orm import relationship
 
@@ -290,14 +290,24 @@ class XPTransaction(Base):
     reason = Column(String(100), nullable=False)
     # Exactly one of these should be set
     quiz_attempt_id = Column(UUID(as_uuid=True), ForeignKey("quiz_attempts.id"), nullable=True, unique=True)
+    quiz_id = Column(UUID(as_uuid=True), ForeignKey("quizzes.id", ondelete="SET NULL"), nullable=True)
     lesson_progress_id = Column(UUID(as_uuid=True), ForeignKey("lesson_progress.id"), nullable=True, unique=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
 
     user = relationship("User", back_populates="xp_transactions")
     quiz_attempt = relationship("QuizAttempt", back_populates="xp_transaction")
+    quiz = relationship("Quiz")
 
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_xp_amount_positive"),
+        Index(
+            "uq_xp_transactions_user_quiz",
+            "user_id",
+            "quiz_id",
+            unique=True,
+            postgresql_where=text("quiz_id IS NOT NULL"),
+            sqlite_where=text("quiz_id IS NOT NULL"),
+        ),
     )
 
 
