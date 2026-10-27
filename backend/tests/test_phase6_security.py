@@ -54,12 +54,13 @@ class TestIDORAndTenantIsolation:
             user_a_token = reg_a.cookies["access_token"]
 
             # User A completes a lesson and gets a quiz
-            lessons_res = await client.get("/api/v1/learn/modules/network-defense-fundamentals/lessons", cookies={"access_token": user_a_token})
+            client.cookies.set("access_token", user_a_token)
+            lessons_res = await client.get("/api/v1/learn/modules/network-defense-fundamentals/lessons")
             assert lessons_res.status_code == 200
             lesson_id = lessons_res.json()[0]["id"]
-            await client.post(f"/api/v1/learn/lessons/{lesson_id}/complete", cookies={"access_token": user_a_token})
+            await client.post(f"/api/v1/learn/lessons/{lesson_id}/complete")
 
-            quiz_res = await client.get("/api/v1/learn/quizzes/network-defense-quiz", cookies={"access_token": user_a_token})
+            quiz_res = await client.get("/api/v1/learn/quizzes/network-defense-quiz")
             quiz_id = quiz_res.json()["id"]
             questions = quiz_res.json()["questions"]
             answers = {q["id"]: q["options"][0]["id"] for q in questions}
@@ -72,6 +73,7 @@ class TestIDORAndTenantIsolation:
             assert reg_b.status_code == 201
             user_b_id = reg_b.json()["user"]["id"]
             user_b_token = reg_b.cookies["access_token"]
+            client.cookies.set("access_token", user_b_token)
 
             # 1. Speculative routes return 404 because they are unmapped routes
             probe_paths = [
@@ -84,26 +86,25 @@ class TestIDORAndTenantIsolation:
             for path in probe_paths:
                 # Confirm path is genuinely absent from registered routes
                 assert path not in registered_paths
-                res = await client.get(path, cookies={"access_token": user_b_token})
+                res = await client.get(path)
                 assert res.status_code == 404
 
             # 2. User B queries progress -> returns strictly User B progress (0 XP, 0 completed lessons)
-            prog_b = await client.get("/api/v1/learn/progress", cookies={"access_token": user_b_token})
+            prog_b = await client.get("/api/v1/learn/progress")
             assert prog_b.status_code == 200
             data_b = prog_b.json()
             assert data_b["completed_lessons"] == []
             assert data_b["xp_total"] == 0
 
             # 3. User B queries /auth/me?user_id={user_a_id} -> returns User B's profile
-            me_b = await client.get(f"/api/v1/auth/me?user_id={user_a_id}", cookies={"access_token": user_b_token})
+            me_b = await client.get(f"/api/v1/auth/me?user_id={user_a_id}")
             assert me_b.status_code == 200
             assert me_b.json()["id"] == user_b_id
 
             # 4. User B submits quiz with injected user_id in payload attempting to credit User A
             submit_res = await client.post(
                 f"/api/v1/learn/quizzes/{quiz_id}/submit",
-                json={"answers": answers, "user_id": user_a_id},
-                cookies={"access_token": user_b_token}
+                json={"answers": answers, "user_id": user_a_id}
             )
             assert submit_res.status_code == 200
 
@@ -151,7 +152,8 @@ class TestTokenRevocationAndReplayAfterLogout:
                 assert sess_row.revoked_at is not None
 
             # Replay attempt via Cookie -> 401
-            replay_cookie = await client.get("/api/v1/auth/me", cookies={"access_token": token})
+            client.cookies.set("access_token", token)
+            replay_cookie = await client.get("/api/v1/auth/me")
             assert replay_cookie.status_code == 401
             assert "Session revoked or not found" in replay_cookie.json()["detail"]
 
@@ -292,11 +294,12 @@ class TestCSRFAndContentTypeBehavior:
             lessons = (await client.get("/api/v1/learn/modules/network-defense-fundamentals/lessons")).json()
             lesson_id = lessons[0]["id"]
 
+            client.cookies.set("access_token", token)
+
             # 1. Untrusted Origin -> 403 Forbidden
             res_evil = await client.post(
                 f"/api/v1/learn/lessons/{lesson_id}/complete",
-                headers={"Origin": "http://evil.com"},
-                cookies={"access_token": token}
+                headers={"Origin": "http://evil.com"}
             )
             assert res_evil.status_code == 403
             assert "Cross-origin request rejected" in res_evil.json()["detail"]
@@ -304,15 +307,13 @@ class TestCSRFAndContentTypeBehavior:
             # 2. Allowed Origin -> 200 OK
             res_allowed = await client.post(
                 f"/api/v1/learn/lessons/{lesson_id}/complete",
-                headers={"Origin": "http://localhost:3000"},
-                cookies={"access_token": token}
+                headers={"Origin": "http://localhost:3000"}
             )
             assert res_allowed.status_code == 200
 
             # 3. No Origin (API/mobile client) -> 200 OK
             res_no_origin = await client.post(
-                f"/api/v1/learn/lessons/{lesson_id}/complete",
-                cookies={"access_token": token}
+                f"/api/v1/learn/lessons/{lesson_id}/complete"
             )
             assert res_no_origin.status_code == 200
 
@@ -328,14 +329,14 @@ class TestCSRFAndContentTypeBehavior:
                 "full_name": "CSRF User", "email": email, "password": "Password123"
             })
             token = client.cookies["access_token"]
+            client.cookies.set("access_token", token)
 
             quizzes = (await client.get("/api/v1/learn/quizzes/network-defense-quiz")).json()
             quiz_id = quizzes["id"]
             res_submit = await client.post(
                 f"/api/v1/learn/quizzes/{quiz_id}/submit",
                 headers={"Content-Type": "text/plain", "Origin": "http://localhost:3000"},
-                content=json.dumps({"answers": {"q1": "b"}}),
-                cookies={"access_token": token}
+                content=json.dumps({"answers": {"q1": "b"}})
             )
             # FastAPI rejects raw text/plain string where Pydantic model is required
             assert res_submit.status_code == 422
