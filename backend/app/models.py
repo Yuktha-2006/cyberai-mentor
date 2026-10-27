@@ -272,6 +272,7 @@ class QuizAttempt(Base):
     __table_args__ = (
         CheckConstraint("score >= 0 AND score <= 100", name="ck_attempts_score_range"),
         CheckConstraint("attempt_number >= 1", name="ck_attempts_number_min"),
+        UniqueConstraint("user_id", "quiz_id", "attempt_number", name="uq_quiz_attempts_user_quiz_attempt_number"),
         Index("ix_quiz_attempts_user_quiz", "user_id", "quiz_id"),
     )
 
