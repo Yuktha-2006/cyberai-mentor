@@ -20,7 +20,7 @@ from app.database import get_db
 from app.models import User, UserProfile, UserSession, UserRole
 from app.security import (
     hash_password, verify_password, needs_rehash,
-    create_access_token, create_refresh_token, decode_token, generate_jti,
+    create_access_token, decode_token, generate_jti,
     DUMMY_HASH,
 )
 from app.config import get_settings
@@ -30,7 +30,6 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 # ── Cookie names ─────────────────────────────────────────────────────────────
 ACCESS_COOKIE = "access_token"
-REFRESH_COOKIE = "refresh_token"
 COOKIE_KWARGS = dict(httponly=True, secure=settings.is_production, samesite="lax", path="/")
 
 # ── Brute-force Throttling ───────────────────────────────────────────────────
@@ -198,8 +197,6 @@ async def register(
     # Issue tokens and create session
     jti = generate_jti()
     access_token, access_expires = create_access_token(str(user.id), jti)
-    refresh_jti = generate_jti()
-    refresh_token, refresh_expires = create_refresh_token(str(user.id), refresh_jti)
 
     session = UserSession(
         user_id=user.id,
@@ -210,11 +207,9 @@ async def register(
     )
     db.add(session)
 
-    # Set HttpOnly cookies
+    # Set HttpOnly cookie
     response.set_cookie(ACCESS_COOKIE, access_token, **COOKIE_KWARGS,
                         max_age=settings.access_token_expire_minutes * 60)
-    response.set_cookie(REFRESH_COOKIE, refresh_token, **COOKIE_KWARGS,
-                        max_age=settings.refresh_token_expire_days * 86400)
 
     return AuthResponse(
         user=_user_to_out(user, onboarding_completed=False),
@@ -262,8 +257,6 @@ async def login(
 
     jti = generate_jti()
     access_token, access_expires = create_access_token(str(user.id), jti)
-    refresh_jti = generate_jti()
-    refresh_token, refresh_expires = create_refresh_token(str(user.id), refresh_jti)
 
     session = UserSession(
         user_id=user.id,
@@ -276,8 +269,6 @@ async def login(
 
     response.set_cookie(ACCESS_COOKIE, access_token, **COOKIE_KWARGS,
                         max_age=settings.access_token_expire_minutes * 60)
-    response.set_cookie(REFRESH_COOKIE, refresh_token, **COOKIE_KWARGS,
-                        max_age=settings.refresh_token_expire_days * 86400)
 
     # Load profile
     profile_result = await db.execute(select(UserProfile).where(UserProfile.user_id == user.id))
@@ -318,7 +309,6 @@ async def logout(
         session.revoked_at = datetime.now(timezone.utc)
 
     response.delete_cookie(ACCESS_COOKIE, path="/")
-    response.delete_cookie(REFRESH_COOKIE, path="/")
 
 
 @router.get("/me", response_model=UserOut)
