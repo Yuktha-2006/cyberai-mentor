@@ -274,11 +274,52 @@ class TestJWTSignatureAndAlgorithmIntegrity:
 class TestCSRFAndContentTypeBehavior:
     """Tests CSRF behavior with text/plain payloads and verifies CORS whitelist configuration."""
 
+    async def test_origin_checking_middleware_blocks_cross_origin_mutations(self):
+        """
+        Verify Origin-checking CSRF middleware:
+        1. POST with untrusted Origin (http://evil.com) is rejected with HTTP 403 Forbidden.
+        2. POST with allowed Origin (http://localhost:3000) succeeds with HTTP 200 OK.
+        3. POST without Origin header (non-browser API client) succeeds with HTTP 200 OK.
+        """
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            email = f"origin_{uuid.uuid4().hex[:6]}@example.com"
+            reg = await client.post("/api/v1/auth/register", json={
+                "full_name": "Origin User", "email": email, "password": "Password123"
+            })
+            token = client.cookies["access_token"]
+
+            lessons = (await client.get("/api/v1/learn/modules/network-defense-fundamentals/lessons")).json()
+            lesson_id = lessons[0]["id"]
+
+            # 1. Untrusted Origin -> 403 Forbidden
+            res_evil = await client.post(
+                f"/api/v1/learn/lessons/{lesson_id}/complete",
+                headers={"Origin": "http://evil.com"},
+                cookies={"access_token": token}
+            )
+            assert res_evil.status_code == 403
+            assert "Cross-origin request rejected" in res_evil.json()["detail"]
+
+            # 2. Allowed Origin -> 200 OK
+            res_allowed = await client.post(
+                f"/api/v1/learn/lessons/{lesson_id}/complete",
+                headers={"Origin": "http://localhost:3000"},
+                cookies={"access_token": token}
+            )
+            assert res_allowed.status_code == 200
+
+            # 3. No Origin (API/mobile client) -> 200 OK
+            res_no_origin = await client.post(
+                f"/api/v1/learn/lessons/{lesson_id}/complete",
+                cookies={"access_token": token}
+            )
+            assert res_no_origin.status_code == 200
+
     async def test_text_plain_content_type_behavior(self):
         """
         Probe mutating endpoints with Content-Type: text/plain:
-        1. Endpoints declaring Pydantic request bodies (/quizzes/{id}/submit) reject text/plain JSON strings with 422 Unprocessable Entity.
-        2. Schema-less mutating endpoints (/lessons/{id}/complete) execute with 200, documenting the defense-in-depth gap.
+        Endpoints declaring Pydantic request bodies (/quizzes/{id}/submit) reject text/plain JSON strings with 422 Unprocessable Entity.
         """
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -288,27 +329,16 @@ class TestCSRFAndContentTypeBehavior:
             })
             token = client.cookies["access_token"]
 
-            # 1. Pydantic body endpoint with Content-Type: text/plain
             quizzes = (await client.get("/api/v1/learn/quizzes/network-defense-quiz")).json()
             quiz_id = quizzes["id"]
             res_submit = await client.post(
                 f"/api/v1/learn/quizzes/{quiz_id}/submit",
-                headers={"Content-Type": "text/plain", "Origin": "http://evil.com"},
+                headers={"Content-Type": "text/plain", "Origin": "http://localhost:3000"},
                 content=json.dumps({"answers": {"q1": "b"}}),
                 cookies={"access_token": token}
             )
             # FastAPI rejects raw text/plain string where Pydantic model is required
             assert res_submit.status_code == 422
-
-            # 2. Schema-less endpoint: takes no request body
-            lessons = (await client.get("/api/v1/learn/modules/network-defense-fundamentals/lessons")).json()
-            lesson_id = lessons[0]["id"]
-            res_complete = await client.post(
-                f"/api/v1/learn/lessons/{lesson_id}/complete",
-                headers={"Content-Type": "text/plain", "Origin": "http://evil.com"},
-                cookies={"access_token": token}
-            )
-            assert res_complete.status_code == 200
 
     async def test_cors_whitelist_rejects_untrusted_origins(self):
         """CORS middleware rejects untrusted origins on preflight OPTIONS requests."""
