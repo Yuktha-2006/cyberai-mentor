@@ -51,17 +51,35 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
+allowed_origins = [settings.frontend_origin]
+if not settings.is_production:
+    allowed_origins.extend(["http://localhost:3000", "http://127.0.0.1:3000"])
+allowed_origins = list(dict.fromkeys(allowed_origins))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        settings.frontend_origin,
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,   # Required for HttpOnly cookies
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
+
+# ── Origin-checking CSRF defense middleware ────────────────────────────────────
+@app.middleware("http")
+async def csrf_origin_validation(request: Request, call_next):
+    """
+    Enforce Origin validation on state-mutating HTTP methods (POST, PUT, PATCH, DELETE).
+    - If Origin header is present: must match allowed_origins; otherwise rejected with HTTP 403 Forbidden.
+    - If Origin header is absent (non-browser clients, mobile apps, curl): permitted.
+    """
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        origin = request.headers.get("origin")
+        if origin and origin not in allowed_origins:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"detail": "Cross-origin request rejected: Origin not allowed"},
+            )
+    return await call_next(request)
 
 # ── Security headers middleware ───────────────────────────────────────────────
 @app.middleware("http")
