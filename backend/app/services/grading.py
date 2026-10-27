@@ -69,8 +69,16 @@ async def grade_quiz_attempt(
 
     # Serialize attempt counting per user and quiz using PostgreSQL transaction-level advisory lock
     # to eliminate count-then-insert race on max_attempts (graceful rejection vs IntegrityError crash)
-    bind = db.get_bind()
-    if bind.dialect.name == "postgresql":
+    dialect_name = None
+    bind = getattr(db, "bind", None)
+    if bind and hasattr(bind, "dialect"):
+        dialect_name = bind.dialect.name
+    elif hasattr(db, "get_bind"):
+        b = db.get_bind()
+        if hasattr(b, "dialect"):
+            dialect_name = b.dialect.name
+
+    if dialect_name == "postgresql":
         try:
             await db.execute(
                 select(func.pg_advisory_xact_lock(
