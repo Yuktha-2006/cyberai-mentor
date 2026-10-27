@@ -1,0 +1,39 @@
+
+> cybermentor-ai-frontend@0.1.0 build
+> next build
+
+  Ôû▓ Next.js 14.2.35
+  - Environments: .env.local
+
+   Creating an optimized production build ...
+ Ô£ô Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/11) ...
+   Generating static pages (2/11) 
+   Generating static pages (5/11) 
+   Generating static pages (8/11) 
+ Ô£ô Generating static pages (11/11)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+Ôöî Ôùï /                                    8.96 kB         142 kB
+Ôö£ Ôùï /_not-found                          873 B          88.1 kB
+Ôö£ Ôùï /dashboard                           5.44 kB         143 kB
+Ôö£ Ôùï /dashboard/labs                      3.56 kB         105 kB
+Ôö£ Ôùï /dashboard/learn                     3.2 kB          141 kB
+Ôö£ ãÆ /dashboard/learn/[slug]              4.34 kB         142 kB
+Ôö£ Ôùï /dashboard/mentor                    4.71 kB         142 kB
+Ôö£ Ôùï /login                               2.06 kB         117 kB
+Ôö£ Ôùï /onboarding                          5.72 kB         134 kB
+Ôöö Ôùï /register                            3.06 kB         118 kB
++ First Load JS shared by all            87.3 kB
+  Ôö£ chunks/117-d74554d3ca245c97.js       31.7 kB
+  Ôö£ chunks/fd9d1056-bb367eba3fb38883.js  53.6 kB
+  Ôöö other shared chunks (total)          1.89 kB
+
+
+Ôùï  (Static)   prerendered as static content
+ãÆ  (Dynamic)  server-rendered on demand
+
