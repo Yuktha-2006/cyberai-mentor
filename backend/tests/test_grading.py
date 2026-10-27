@@ -31,10 +31,26 @@ class TestLevelComputation:
     def test_level_2_at_249_xp(self):
         assert _compute_level(249) == 2
 
-    def test_level_3_at_250_xp(self):
-        # Threshold for level 3: 100 * 3 * 2 / 2 = 300 — wait, let's check formula
-        # _level_threshold(3) = 100 * 3 * 2 // 2 = 300
-        assert _level_threshold(3) == 300
+    def test_level_2_at_250_xp(self):
+        assert _compute_level(250) == 2
+
+    def test_level_2_at_299_xp(self):
+        assert _compute_level(299) == 2
+
+    def test_level_3_at_300_xp(self):
+        assert _compute_level(300) == 3
+
+    def test_level_3_at_599_xp(self):
+        assert _compute_level(599) == 3
+
+    def test_level_4_at_600_xp(self):
+        assert _compute_level(600) == 4
+
+    def test_level_4_at_999_xp(self):
+        assert _compute_level(999) == 4
+
+    def test_level_5_at_1000_xp(self):
+        assert _compute_level(1000) == 5
 
     def test_monotonically_increasing_thresholds(self):
         """Each level requires more XP than the previous."""
