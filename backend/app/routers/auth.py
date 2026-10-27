@@ -21,6 +21,7 @@ from app.models import User, UserProfile, UserSession, UserRole
 from app.security import (
     hash_password, verify_password, needs_rehash,
     create_access_token, create_refresh_token, decode_token, generate_jti,
+    DUMMY_HASH,
 )
 from app.config import get_settings
 
@@ -232,9 +233,8 @@ async def login(
     )
     user = user_result.scalar_one_or_none()
 
-    # Constant-time: always verify even if user not found (prevents timing attacks)
-    dummy_hash = "$argon2id$v=19$m=65536,t=3,p=4$dummysalthere$dummyhashvaluethatislong"
-    password_ok = verify_password(body.password, user.hashed_password if user else dummy_hash)
+    # Constant-time: always verify against valid hash even if user not found (prevents timing attacks)
+    password_ok = verify_password(body.password, user.hashed_password if user else DUMMY_HASH)
 
     if not user or not password_ok:
         _record_failed_attempt(f"ip:{client_ip}")
@@ -333,8 +333,8 @@ def _user_to_out(user: User, *, onboarding_completed: bool) -> UserOut:
 
 
 def _get_client_ip(request: Request) -> str:
-    """Extract real IP, respecting X-Forwarded-For in trusted proxy setups."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()[:45]
+    """
+    Extract client IP strictly from socket connection to prevent header spoofing (NET-01).
+    Header trust (e.g. X-Forwarded-For) is disabled until a trusted proxy configuration is bound.
+    """
     return (request.client.host if request.client else "unknown")[:45]
