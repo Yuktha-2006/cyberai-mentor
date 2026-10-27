@@ -68,11 +68,18 @@ async def grade_quiz_attempt(
         raise GradingError("Quiz has no questions.")
 
     # Serialize attempt counting per user and quiz using PostgreSQL transaction-level advisory lock
-    # or fallback to database savepoint to eliminate count-then-insert race on max_attempts
-    if db.bind and db.bind.dialect.name == "postgresql":
-        # Form stable 64-bit bigint lock key from (user_id, quiz_id)
-        lock_key = (hash(user_id) ^ hash(quiz_id)) & 0x7FFFFFFFFFFFFFFF
-        await db.execute(select(func.pg_advisory_xact_lock(lock_key)))
+    # to eliminate count-then-insert race on max_attempts (graceful rejection vs IntegrityError crash)
+    bind = db.get_bind()
+    if bind.dialect.name == "postgresql":
+        try:
+            await db.execute(
+                select(func.pg_advisory_xact_lock(
+                    func.hashtext(str(user_id)),
+                    func.hashtext(str(quiz_id)),
+                ))
+            )
+        except Exception as e:
+            raise GradingError(f"Failed to acquire PostgreSQL transaction advisory lock: {e}") from e
 
     # Count previous attempts
     attempt_count_result = await db.execute(
