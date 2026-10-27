@@ -384,10 +384,18 @@ class TestQuizXpRace:
                 attempts = [r[0] for r in cur.fetchall()]
 
         from app.services.grading import MaxAttemptsExceededError
+        from sqlalchemy.exc import IntegrityError
+
         max_attempt_errs = [r for r in results if isinstance(r, MaxAttemptsExceededError)]
+        integrity_errs = [r for r in results if isinstance(r, IntegrityError)]
         other_errs = [r for r in results if isinstance(r, Exception) and not isinstance(r, MaxAttemptsExceededError)]
 
+        # Guarantee 1: Database integrity (guaranteed by UNIQUE constraint)
         assert len(attempts) == 3, f"Expected exactly 3 attempts, got {len(attempts)}"
         assert attempts == [1, 2, 3], f"Attempt numbers collided or skipped: {attempts}"
-        assert len(max_attempt_errs) == 17, f"Expected 17 MaxAttemptsExceededError, got {len(max_attempt_errs)}"
+
+        # Guarantee 2: Graceful rejection (guaranteed by transaction advisory lock)
+        # Without the lock, 9 to 17 concurrent requests crash with unhandled IntegrityError (HTTP 500)
+        assert len(integrity_errs) == 0, f"Advisory lock failed: {len(integrity_errs)} requests crashed with IntegrityError (HTTP 500): {integrity_errs}"
         assert len(other_errs) == 0, f"Unexpected server errors: {other_errs}"
+        assert len(max_attempt_errs) == 17, f"Expected 17 MaxAttemptsExceededError (HTTP 409), got {len(max_attempt_errs)}"
