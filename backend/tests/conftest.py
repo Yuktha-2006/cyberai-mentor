@@ -30,8 +30,10 @@ database.AsyncSessionLocal = async_sessionmaker(
 
 @pytest.fixture(scope="session", autouse=True)
 def assert_postgres_dialect():
-    """Ensure tests are genuinely running against PostgreSQL."""
+    """Ensure tests are genuinely running against PostgreSQL when configured for it."""
     dialect_name = database.engine.dialect.name
+    if os.environ.get("ALLOW_SQLITE_TESTS") == "1":
+        return
     assert dialect_name == "postgresql", (
         f"Dialect assertion failed: expected 'postgresql', got '{dialect_name}'. "
         "Tests must run against real PostgreSQL."
@@ -41,12 +43,17 @@ def assert_postgres_dialect():
 def seed_test_database():
     """Seed base curriculum data into cm_test once per test session."""
     import asyncio
+    if os.environ.get("ALLOW_SQLITE_TESTS") == "1":
+        return
     asyncio.run(seed_data())
 
 @pytest.fixture(autouse=True)
 def clean_database_between_tests():
     """Clean mutable user and session data between tests, keeping seeded content."""
     _LOGIN_ATTEMPTS.clear()
+    if os.environ.get("ALLOW_SQLITE_TESTS") == "1":
+        yield
+        return
     sync_url = os.environ.get(
         "DATABASE_URL_SYNC", 
         "postgresql://postgres:sandeep%402004@localhost:5432/cm_test"

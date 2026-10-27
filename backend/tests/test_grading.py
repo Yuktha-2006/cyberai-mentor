@@ -120,7 +120,8 @@ class TestGradingIntegration:
             MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=questions)))),  # questions
             MagicMock(scalar=MagicMock(return_value=0)),                   # attempt count
             MagicMock(scalar_one_or_none=MagicMock(return_value=None)),    # prior XP check
-            MagicMock(scalar_one=MagicMock(return_value=MagicMock(id=uuid.uuid4(), xp_total=0, level=1))),  # user
+            MagicMock(scalar_one=MagicMock(return_value=50)),              # update User returning xp_total
+            MagicMock(),                                                   # update User level
         ]
         db.flush = AsyncMock()
         db.add = MagicMock()

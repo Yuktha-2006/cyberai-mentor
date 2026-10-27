@@ -101,7 +101,39 @@ class TestRegistrationAndAuthSecurity:
             headers={"Origin": "http://localhost:3000"}
         )
         assert resp.status_code == 401
-        assert "incorrect" in resp.json()["detail"].lower() or "invalid" in resp.json()["detail"].lower()
+
+    def test_unknown_email_and_wrong_password_identical_response(self):
+        """
+        Anti-enumeration verification:
+        Both non-existent email and wrong password for an existing user
+        must return identical HTTP status code and response body.
+        """
+        c = _make_client()
+        existing_email = _unique_email("enum_target")
+        c.post(
+            "/api/v1/auth/register",
+            json={"full_name": "Target User", "email": existing_email, "password": "CorrectPassword123!"},
+            headers={"Origin": "http://localhost:3000"}
+        )
+
+        resp_wrong_pw = c.post(
+            "/api/v1/auth/login",
+            json={"email": existing_email, "password": "WrongPassword123!"},
+            headers={"Origin": "http://localhost:3000"}
+        )
+
+        resp_unknown_email = c.post(
+            "/api/v1/auth/login",
+            json={"email": "nonexistent_user@example.com", "password": "WrongPassword123!"},
+            headers={"Origin": "http://localhost:3000"}
+        )
+
+        assert resp_wrong_pw.status_code == 401
+        assert resp_unknown_email.status_code == 401
+        assert resp_wrong_pw.json() == resp_unknown_email.json(), (
+            f"Response mismatch: wrong_pw={resp_wrong_pw.json()} vs unknown_email={resp_unknown_email.json()}"
+        )
+        assert "invalid" in resp_wrong_pw.json()["detail"].lower() or "incorrect" in resp_wrong_pw.json()["detail"].lower()
 
     def test_logout_revokes_session(self):
         c = _make_client()
