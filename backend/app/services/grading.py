@@ -237,11 +237,7 @@ async def _award_xp(
         return True
 
     try:
-        nested = db.begin_nested() if hasattr(db, "begin_nested") else None
-        if hasattr(nested, "__aenter__"):
-            async with nested:
-                return await _do_insert()
-        else:
+        async with db.begin_nested():
             return await _do_insert()
     except IntegrityError:
         # Concurrent request already committed the unique XP transaction

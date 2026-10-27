@@ -125,6 +125,14 @@ class TestGradingIntegration:
         db.flush = AsyncMock()
         db.add = MagicMock()
 
+        class _MockNested:
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                return None
+
+        db.begin_nested = MagicMock(return_value=_MockNested())
+
         from app.services.grading import grade_quiz_attempt
 
         attempt = await grade_quiz_attempt(

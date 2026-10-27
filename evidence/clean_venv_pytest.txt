@@ -1,0 +1,66 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.14, pytest-8.3.2, pluggy-1.7.0 -- C:\Users\Yuktha Mohan\.gemini\antigravity\scratch\cybermentor-ai\backend\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\Yuktha Mohan\.gemini\antigravity\scratch\cybermentor-ai\backend
+configfile: pytest.ini
+plugins: anyio-4.4.0, asyncio-0.23.8
+asyncio: mode=Mode.AUTO
+collecting ... collected 46 items
+
+tests/test_adversarial_security.py::TestAdversarialAuthAndThrottling::test_brute_force_rate_limit_triggers_429 PASSED [  2%]
+tests/test_adversarial_security.py::TestAdversarialAuthAndThrottling::test_cookie_security_attributes PASSED [  4%]
+tests/test_adversarial_security.py::TestAdversarialAuthAndThrottling::test_bearer_token_authorization_support PASSED [  6%]
+tests/test_adversarial_security.py::TestAIMentorSafetyBoundaries::test_rejects_unauthorized_xp_award_requests PASSED [  8%]
+tests/test_adversarial_security.py::TestAIMentorSafetyBoundaries::test_refuses_weaponized_exploit_generation PASSED [ 10%]
+tests/test_adversarial_security.py::TestAIMentorSafetyBoundaries::test_resists_prompt_injection_and_system_prompt_leak PASSED [ 13%]
+tests/test_adversarial_security.py::TestAIMentorSafetyBoundaries::test_static_vulnerability_scanner_includes_heuristic_disclaimer PASSED [ 15%]
+tests/test_adversarial_security.py::TestDuplicateQuizXPAntiReplay::test_retaking_quiz_awards_xp_only_once PASSED [ 17%]
+tests/test_adversarial_security.py::TestConcurrentLessonCompletion::test_concurrent_lesson_completion_awards_xp_exactly_once PASSED [ 19%]
+tests/test_e2e_journey_verification.py::test_complete_end_to_end_multi_user_journey PASSED [ 21%]
+tests/test_grading.py::TestLevelComputation::test_level_1_at_zero_xp PASSED [ 23%]
+tests/test_grading.py::TestLevelComputation::test_level_1_at_99_xp PASSED [ 26%]
+tests/test_grading.py::TestLevelComputation::test_level_2_at_100_xp PASSED [ 28%]
+tests/test_grading.py::TestLevelComputation::test_level_2_at_249_xp PASSED [ 30%]
+tests/test_grading.py::TestLevelComputation::test_level_3_at_250_xp PASSED [ 32%]
+tests/test_grading.py::TestLevelComputation::test_monotonically_increasing_thresholds PASSED [ 34%]
+tests/test_grading.py::TestLevelComputation::test_level_cap_at_50 PASSED [ 36%]
+tests/test_grading.py::TestLevelComputation::test_level_never_below_1 PASSED [ 39%]
+tests/test_grading.py::TestScoreBoundaries::test_exactly_passing PASSED  [ 41%]
+tests/test_grading.py::TestScoreBoundaries::test_just_below_passing PASSED [ 43%]
+tests/test_grading.py::TestScoreBoundaries::test_perfect_score PASSED    [ 45%]
+tests/test_grading.py::TestScoreBoundaries::test_zero_score PASSED       [ 47%]
+tests/test_grading.py::TestGradingIntegration::test_grade_all_correct PASSED [ 50%]
+tests/test_grading.py::TestGradingIntegration::test_max_attempts_raises PASSED [ 52%]
+tests/test_integration_auth_journey.py::TestRegistrationAndAuthSecurity::test_registration_creates_account PASSED [ 54%]
+tests/test_integration_auth_journey.py::TestRegistrationAndAuthSecurity::test_duplicate_registration_rejected PASSED [ 56%]
+tests/test_integration_auth_journey.py::TestRegistrationAndAuthSecurity::test_login_success PASSED [ 58%]
+tests/test_integration_auth_journey.py::TestRegistrationAndAuthSecurity::test_login_invalid_password_rejected PASSED [ 60%]
+tests/test_integration_auth_journey.py::TestRegistrationAndAuthSecurity::test_logout_revokes_session PASSED [ 63%]
+tests/test_integration_auth_journey.py::TestOnboardingAssessment::test_onboarding_deterministic_scoring PASSED [ 65%]
+tests/test_integration_auth_journey.py::TestLearningLoopAndIdempotency::test_answer_keys_never_leaked_in_quiz_api PASSED [ 67%]
+tests/test_integration_auth_journey.py::TestLearningLoopAndIdempotency::test_lesson_completion_and_idempotent_anti_replay_xp PASSED [ 69%]
+tests/test_integration_auth_journey.py::TestLearningLoopAndIdempotency::test_deterministic_quiz_grading_and_feedback PASSED [ 71%]
+tests/test_integration_auth_journey.py::TestCrossUserDataIsolation::test_multi_user_isolation PASSED [ 73%]
+tests/test_security.py::TestPasswordHashing::test_hash_produces_argon2id_hash PASSED [ 76%]
+tests/test_security.py::TestPasswordHashing::test_verify_correct_password PASSED [ 78%]
+tests/test_security.py::TestPasswordHashing::test_verify_wrong_password PASSED [ 80%]
+tests/test_security.py::TestPasswordHashing::test_same_password_different_hashes PASSED [ 82%]
+tests/test_security.py::TestPasswordHashing::test_verify_returns_false_on_invalid_hash PASSED [ 84%]
+tests/test_security.py::TestPasswordHashing::test_empty_password_fails_verification PASSED [ 86%]
+tests/test_security.py::TestPasswordHashing::test_needs_rehash_fresh_hash PASSED [ 89%]
+tests/test_security.py::TestJWTTokens::test_access_token_roundtrip PASSED [ 91%]
+tests/test_security.py::TestJWTTokens::test_jti_is_unique PASSED         [ 93%]
+tests/test_security.py::TestJWTTokens::test_jti_length PASSED            [ 95%]
+tests/test_security.py::TestJWTTokens::test_invalid_token_raises PASSED  [ 97%]
+tests/test_security.py::TestJWTTokens::test_tampered_token_raises PASSED [100%]
+
+============================== warnings summary ===============================
+tests/test_adversarial_security.py: 17 warnings
+tests/test_e2e_journey_verification.py: 13 warnings
+tests/test_integration_auth_journey.py: 16 warnings
+tests/test_security.py: 1 warning
+  C:\Users\Yuktha Mohan\.gemini\antigravity\scratch\cybermentor-ai\backend\.venv\Lib\site-packages\jose\jwt.py:311: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = timegm(datetime.utcnow().utctimetuple())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 46 passed, 47 warnings in 4.10s =======================

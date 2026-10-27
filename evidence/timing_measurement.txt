@@ -1,0 +1,17 @@
+=== TIMING BENCHMARK: DUMMY HASH vs REAL HASH VERIFICATION ===
+Dummy Hash (from auth.py:236): $argon2id$v=19$m=65536,t=3,p=4$dummysalthere$dummyhashvaluethatislong
+Sample Real Hash: $argon2id$v=19$m=65536,t=3,p=4$xUUj...
+
+Dummy Hash (n=30):
+  Mean:   0.0065 ms
+  Median: 0.0040 ms
+  Min:    0.0037 ms
+  Max:    0.0572 ms
+
+Real Hash (n=30):
+  Mean:   71.1282 ms
+  Median: 69.8362 ms
+  Min:    63.0379 ms
+  Max:    85.0281 ms
+
+Timing Ratio (Real Mean / Dummy Mean): 10948.4x
