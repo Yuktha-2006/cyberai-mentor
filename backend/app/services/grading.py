@@ -68,7 +68,9 @@ async def grade_quiz_attempt(
         raise GradingError("Quiz has no questions.")
 
     # Serialize attempt counting per user and quiz using PostgreSQL transaction-level advisory lock
-    # to eliminate count-then-insert race on max_attempts (graceful rejection vs IntegrityError crash)
+    # to eliminate count-then-insert race on max_attempts (graceful rejection vs IntegrityError crash).
+    # Dialect note: PostgreSQL supports pg_advisory_xact_lock; on SQLite (used only for fast unit tests),
+    # advisory locks do not exist and concurrency is serialized by SQLite's single-writer file lock.
     dialect_name = None
     bind = getattr(db, "bind", None)
     if bind and hasattr(bind, "dialect"):
@@ -79,15 +81,15 @@ async def grade_quiz_attempt(
             dialect_name = b.dialect.name
 
     if dialect_name == "postgresql":
-        try:
-            await db.execute(
-                select(func.pg_advisory_xact_lock(
-                    func.hashtext(str(user_id)),
-                    func.hashtext(str(quiz_id)),
-                ))
-            )
-        except Exception as e:
-            raise GradingError(f"Failed to acquire PostgreSQL transaction advisory lock: {e}") from e
+        # Acquire transaction-level lock using two 32-bit hashtext keys.
+        # Database connection dropouts and query cancellations/timeouts are not caught here;
+        # they propagate to operational handlers rather than being misclassified as client GradingError (400).
+        await db.execute(
+            select(func.pg_advisory_xact_lock(
+                func.hashtext(str(user_id)),
+                func.hashtext(str(quiz_id)),
+            ))
+        )
 
     # Count previous attempts
     attempt_count_result = await db.execute(
@@ -282,11 +284,13 @@ async def _award_xp(
 
 def _compute_level(xp: int) -> int:
     """
-    Level thresholds (can be tuned without changing the data model):
+    Level thresholds (follows 100 * N * (N-1) / 2 quadratic formula):
     Level 1:   0–99 XP
-    Level 2: 100–249 XP
-    Level 3: 250–499 XP
-    Level N: follows 100 * N * (N-1) / 2 formula
+    Level 2: 100–299 XP
+    Level 3: 300–599 XP
+    Level 4: 600–999 XP
+    Level 5: 1000–1499 XP
+    Level N: follows 100 * N * (N-1) / 2 formula (capped at Level 50)
     """
     level = 1
     while xp >= _level_threshold(level + 1):
