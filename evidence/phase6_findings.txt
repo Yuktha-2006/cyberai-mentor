@@ -1,0 +1,267 @@
+================================================================================
+CYBERMENTOR AI - PHASE 6 EMPIRICAL SECURITY AUDIT EVIDENCE
+Executed on: 2026-10-27 21:01:49 UTC
+Engine: PostgreSQL 16.15 (localhost:5432/cm_test)
+Note: Empirical testing only. In accordance with reviewer directives, NO FIXES applied.
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST: SEC-IDOR-01 - Insecure Direct Object Reference (IDOR) & Cross-Tenant Isolation
+VERDICT: SECURE
+EXPLOITABLE: False
+DETAILS:
+All tenant data access is implicitly bound to current_user.id via the authenticated session/JWT dependency. The API does not expose any direct object lookup endpoints accepting arbitrary user IDs or attempt IDs. Speculative probe routes return 404 Not Found. Injected body parameters are safely discarded by Pydantic schemas.
+
+RAW EMPIRICAL EVIDENCE:
+{
+  "test": "SEC-IDOR-01",
+  "name": "Insecure Direct Object Reference (IDOR) & Cross-Tenant Isolation",
+  "requests": [
+    {
+      "endpoint": "GET /api/v1/lessons/f6ec94bd-99cf-4a02-9e63-0e32d2b60077/progress",
+      "status": 404,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "endpoint": "GET /api/v1/quiz/8461d7bf-9c47-4367-808f-b066fba1a542/attempt/ab8b9242-c884-4d00-8449-c0fb3513ddee",
+      "status": 404,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "endpoint": "GET /api/v1/learn/lessons/f6ec94bd-99cf-4a02-9e63-0e32d2b60077/progress",
+      "status": 404,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "endpoint": "GET /api/v1/learn/quizzes/8461d7bf-9c47-4367-808f-b066fba1a542/attempt/ab8b9242-c884-4d00-8449-c0fb3513ddee",
+      "status": 404,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    {
+      "endpoint": "GET /api/v1/learn/progress (as User B)",
+      "status": 200,
+      "body": {
+        "completed_lessons": [],
+        "quiz_best_scores": {},
+        "xp_total": 0,
+        "level": 1
+      }
+    },
+    {
+      "endpoint": "GET /api/v1/auth/me?user_id=2e1f2aa1-1f14-4a79-8e43-14ffdaeab3d8 (as User B)",
+      "status": 200,
+      "body": {
+        "id": "eba73775-83a2-4c6f-8d80-4170f26365ae",
+        "email": "user_b_898eb63b@example.com",
+        "full_name": "User Bravo",
+        "role": "learner",
+        "xp_total": 0,
+        "level": 1,
+        "onboarding_completed": false
+      }
+    }
+  ],
+  "exploitable": false,
+  "verdict": "SECURE",
+  "details": "All tenant data access is implicitly bound to current_user.id via the authenticated session/JWT dependency. The API does not expose any direct object lookup endpoints accepting arbitrary user IDs or attempt IDs. Speculative probe routes return 404 Not Found. Injected body parameters are safely discarded by Pydantic schemas."
+}
+
+--------------------------------------------------------------------------------
+TEST: SEC-LOGOUT-01 - Token Invalidation & Replay After Logout
+VERDICT: VULNERABILITY DETECTED (BEARER TOKEN LOGOUT REVOCATION BYPASS)
+EXPLOITABLE: True
+DETAILS:
+1. Cookie-based Logout: SECURE. When logging out with the access_token cookie, the server sets UserSession.revoked_at in PostgreSQL and clears cookies. Subsequent token replay attempts return HTTP 401 'Session revoked or not found'.
+2. Bearer-based Logout: VULNERABLE (SEC-AUTH-02). get_current_user accepts both Cookies and 'Authorization: Bearer <token>', but /api/v1/auth/logout line 292 only extracts `request.cookies.get(ACCESS_COOKIE)`. When an API or mobile client sends `Authorization: Bearer <token>` to /logout without cookies, `token` is None. The server skips revocation, sets revoked_at to None, and returns 204 No Content. The JWT remains fully valid (HTTP 200) until natural expiration (30 minutes).
+
+RAW EMPIRICAL EVIDENCE:
+{
+  "test": "SEC-LOGOUT-01",
+  "name": "Token Invalidation & Replay After Logout",
+  "cookie_logout": {
+    "description": "Browser client using HttpOnly cookie authentication",
+    "logout_http_status": 204,
+    "db_session_revoked": true,
+    "revoked_at": "2026-10-27T21:01:48.812646+00:00",
+    "replay_bearer_status": 401,
+    "replay_bearer_body": {
+      "detail": "Session revoked or not found"
+    },
+    "replay_cookie_status": 401,
+    "replay_cookie_body": {
+      "detail": "Session revoked or not found"
+    }
+  },
+  "bearer_only_logout": {
+    "description": "API/Mobile client using Authorization: Bearer <token> without cookies",
+    "logout_http_status": 204,
+    "db_session_revoked": false,
+    "replay_status": 200,
+    "replay_body": {
+      "id": "f784efac-0716-4b95-9e8c-bad456bc6e19",
+      "email": "bearer_logout_2fdd124c@example.com",
+      "full_name": "Bearer Logout Tester",
+      "role": "learner",
+      "xp_total": 0,
+      "level": 1,
+      "onboarding_completed": false
+    }
+  },
+  "exploitable": true,
+  "verdict": "VULNERABILITY DETECTED (BEARER TOKEN LOGOUT REVOCATION BYPASS)",
+  "details": "1. Cookie-based Logout: SECURE. When logging out with the access_token cookie, the server sets UserSession.revoked_at in PostgreSQL and clears cookies. Subsequent token replay attempts return HTTP 401 'Session revoked or not found'.\n2. Bearer-based Logout: VULNERABLE (SEC-AUTH-02). get_current_user accepts both Cookies and 'Authorization: Bearer <token>', but /api/v1/auth/logout line 292 only extracts `request.cookies.get(ACCESS_COOKIE)`. When an API or mobile client sends `Authorization: Bearer <token>` to /logout without cookies, `token` is None. The server skips revocation, sets revoked_at to None, and returns 204 No Content. The JWT remains fully valid (HTTP 200) until natural expiration (30 minutes)."
+}
+
+--------------------------------------------------------------------------------
+TEST: SEC-JWT-NONE-01 - JWT Algorithm 'none' Signature Bypass
+VERDICT: SECURE
+EXPLOITABLE: False
+DETAILS:
+python-jose with algorithms=['HS256'] strictly enforces the specified symmetric algorithm whitelist. Any token presenting alg='none' triggers JWTError ('Algorithm not allowed' or 'Error decoding signature'), which is caught and returns HTTP 401 Unauthorized with detail 'Invalid or expired token'.
+
+RAW EMPIRICAL EVIDENCE:
+{
+  "test": "SEC-JWT-NONE-01",
+  "name": "JWT Algorithm 'none' Signature Bypass",
+  "requests": [
+    {
+      "token_format": "header.payload. (Bearer header)",
+      "status": 401,
+      "body": {
+        "detail": "Invalid or expired token"
+      }
+    },
+    {
+      "token_format": "header.payload (Bearer header)",
+      "status": 401,
+      "body": {
+        "detail": "Invalid or expired token"
+      }
+    },
+    {
+      "token_format": "header.payload. (Cookie)",
+      "status": 401,
+      "body": {
+        "detail": "Invalid or expired token"
+      }
+    }
+  ],
+  "exploitable": false,
+  "verdict": "SECURE",
+  "details": "python-jose with algorithms=['HS256'] strictly enforces the specified symmetric algorithm whitelist. Any token presenting alg='none' triggers JWTError ('Algorithm not allowed' or 'Error decoding signature'), which is caught and returns HTTP 401 Unauthorized with detail 'Invalid or expired token'."
+}
+
+--------------------------------------------------------------------------------
+TEST: SEC-JWT-EXP-01 - Expired JWT Token Handling
+VERDICT: SECURE
+EXPLOITABLE: False
+DETAILS:
+Expired tokens raise ExpiredSignatureError (subclass of JWTError). The auth dependency handles JWTError cleanly, returning HTTP 401 with detail 'Invalid or expired token', preventing 500 crashes or acceptance of expired credentials.
+
+RAW EMPIRICAL EVIDENCE:
+{
+  "test": "SEC-JWT-EXP-01",
+  "name": "Expired JWT Token Handling",
+  "requests": [
+    {
+      "format": "Expired via Bearer header",
+      "status": 401,
+      "body": {
+        "detail": "Invalid or expired token"
+      }
+    },
+    {
+      "format": "Expired via Cookie",
+      "status": 401,
+      "body": {
+        "detail": "Invalid or expired token"
+      }
+    }
+  ],
+  "exploitable": false,
+  "verdict": "SECURE",
+  "details": "Expired tokens raise ExpiredSignatureError (subclass of JWTError). The auth dependency handles JWTError cleanly, returning HTTP 401 with detail 'Invalid or expired token', preventing 500 crashes or acceptance of expired credentials."
+}
+
+--------------------------------------------------------------------------------
+TEST: SEC-JWT-SIG-01 - JWT Signature Tampering & Foreign Key Validation
+VERDICT: SECURE
+EXPLOITABLE: False
+DETAILS:
+Tampered signature bytes and foreign-key signed tokens fail HMAC verification in python-jose (raising JWTClaimsError/JWTError). The system responds with clean HTTP 401 Unauthorized.
+
+RAW EMPIRICAL EVIDENCE:
+{
+  "test": "SEC-JWT-SIG-01",
+  "name": "JWT Signature Tampering & Foreign Key Validation",
+  "requests": [
+    {
+      "type": "Corrupted signature bytes",
+      "status": 401,
+      "body": {
+        "detail": "Invalid or expired token"
+      }
+    },
+    {
+      "type": "Foreign HMAC key signature",
+      "status": 401,
+      "body": {
+        "detail": "Invalid or expired token"
+      }
+    }
+  ],
+  "exploitable": false,
+  "verdict": "SECURE",
+  "details": "Tampered signature bytes and foreign-key signed tokens fail HMAC verification in python-jose (raising JWTClaimsError/JWTError). The system responds with clean HTTP 401 Unauthorized."
+}
+
+--------------------------------------------------------------------------------
+TEST: SEC-CSRF-01 - CSRF & Cross-Origin Request Forgery Surface
+VERDICT: MITIGATED BY SAMESITE=LAX & CORS PREFLIGHT; LACKS EXPLICIT ANTI-CSRF TOKENS
+EXPLOITABLE: False
+DETAILS:
+1. State-mutating POST endpoints do NOT implement or require an explicit anti-CSRF token header (e.g., X-CSRF-Token or Double Submit Cookie).
+2. However, primary CSRF protection is provided by the SameSite=Lax cookie attribute, which prevents modern browsers from sending the access_token cookie on cross-site subrequests (fetch, XHR, image tags, iframe).
+3. Furthermore, all mutating endpoints consume JSON payloads (application/json), which triggers a mandatory browser CORS preflight (OPTIONS). The CORSMiddleware whitelist rejects untrusted origins (returns 400 or omits Access-Control-Allow-Origin), so standard cross-origin fetch is blocked before execution.
+4. FINDING / DEFENSE-IN-DEPTH DEFICIT: Server-side handlers do NOT check or enforce the `Origin` or `Sec-Fetch-Site` header directly. If a non-preflight request with cookies reached the server (e.g., in legacy user agents or via sub-domain takeover within the same site), the server executes the mutation because no CSRF token is verified.
+
+RAW EMPIRICAL EVIDENCE:
+{
+  "test": "SEC-CSRF-01",
+  "name": "CSRF & Cross-Origin Request Forgery Surface",
+  "evidence": {
+    "cookie_attributes": "HttpOnly=True; SameSite=Lax; Path=/; Secure=(production only)",
+    "csrf_token_required": false,
+    "post_complete_with_untrusted_origin": {
+      "http_status": 200,
+      "response_body": {
+        "xp_awarded": false,
+        "xp_amount": 0,
+        "message": "Lesson complete!"
+      },
+      "cors_allow_origin_header": null,
+      "cors_allow_credentials_header": "true"
+    },
+    "post_onboarding_with_untrusted_origin": {
+      "http_status": 200,
+      "cors_allow_origin_header": null
+    },
+    "cors_preflight_untrusted_origin": {
+      "http_status": 400,
+      "cors_allow_origin_header": null
+    }
+  },
+  "exploitable": false,
+  "exploitability_context": "Conditional / Defense-in-Depth gap",
+  "verdict": "MITIGATED BY SAMESITE=LAX & CORS PREFLIGHT; LACKS EXPLICIT ANTI-CSRF TOKENS",
+  "details": "1. State-mutating POST endpoints do NOT implement or require an explicit anti-CSRF token header (e.g., X-CSRF-Token or Double Submit Cookie).\n2. However, primary CSRF protection is provided by the SameSite=Lax cookie attribute, which prevents modern browsers from sending the access_token cookie on cross-site subrequests (fetch, XHR, image tags, iframe).\n3. Furthermore, all mutating endpoints consume JSON payloads (application/json), which triggers a mandatory browser CORS preflight (OPTIONS). The CORSMiddleware whitelist rejects untrusted origins (returns 400 or omits Access-Control-Allow-Origin), so standard cross-origin fetch is blocked before execution.\n4. FINDING / DEFENSE-IN-DEPTH DEFICIT: Server-side handlers do NOT check or enforce the `Origin` or `Sec-Fetch-Site` header directly. If a non-preflight request with cookies reached the server (e.g., in legacy user agents or via sub-domain takeover within the same site), the server executes the mutation because no CSRF token is verified."
+}
+
