@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.exc import IntegrityError
 
 from app.models import (
@@ -115,14 +115,15 @@ async def grade_quiz_attempt(
             )
         )
         if prior_xp_result.scalar_one_or_none() is None:
-            await _award_xp(
+            awarded = await _award_xp(
                 db=db,
                 user_id=user_id,
                 amount=quiz.xp_reward,
                 reason=f"Passed quiz: {quiz.slug}",
                 quiz_attempt_id=attempt.id,
+                quiz_id=quiz.id,
             )
-            attempt.xp_awarded = True
+            attempt.xp_awarded = awarded
 
     await db.flush()
     return attempt
@@ -207,6 +208,7 @@ async def _award_xp(
     amount: int,
     reason: str,
     quiz_attempt_id: uuid.UUID | None = None,
+    quiz_id: uuid.UUID | None = None,
     lesson_progress_id: uuid.UUID | None = None,
 ) -> bool:
     """
@@ -223,16 +225,28 @@ async def _award_xp(
             amount=amount,
             reason=reason,
             quiz_attempt_id=quiz_attempt_id,
+            quiz_id=quiz_id,
             lesson_progress_id=lesson_progress_id,
         )
         db.add(txn)
         await db.flush()
 
-        # Update user XP and level atomically
-        user_result = await db.execute(select(User).where(User.id == user_id))
-        user = user_result.scalar_one()
-        user.xp_total += amount
-        user.level = _compute_level(user.xp_total)
+        # Atomic SQL update: row-locks the user in PostgreSQL, serializing concurrent updates
+        update_res = await db.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(xp_total=User.xp_total + amount)
+            .returning(User.xp_total)
+        )
+        new_xp_total = update_res.scalar_one()
+
+        # Update level computed deterministically from the newly returned total
+        new_level = _compute_level(new_xp_total)
+        await db.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(level=new_level)
+        )
         await db.flush()
         return True
 
