@@ -1,0 +1,212 @@
+=== TABLES IN PUBLIC SCHEMA ===
+     table_name     
+--------------------
+ alembic_version
+ assessment_results
+ lesson_progress
+ lessons
+ modules
+ quiz_attempts
+ quiz_questions
+ quizzes
+ user_profiles
+ user_sessions
+ users
+ xp_transactions
+(12 rows)
+
+
+=== CHECK CONSTRAINTS ===
+     table_name     |        constraint_name         |                               check_clause                                
+--------------------+--------------------------------+---------------------------------------------------------------------------
+ alembic_version    | 16607_16608_1_not_null         | version_num IS NOT NULL
+ assessment_results | 16607_17063_1_not_null         | id IS NOT NULL
+ assessment_results | 16607_17063_2_not_null         | user_id IS NOT NULL
+ assessment_results | 16607_17063_3_not_null         | domain IS NOT NULL
+ assessment_results | 16607_17063_4_not_null         | score IS NOT NULL
+ assessment_results | 16607_17063_5_not_null         | assessed_at IS NOT NULL
+ assessment_results | ck_assessment_score_range      | (((score >= (0)::numeric) AND (score <= (100)::numeric)))
+ lesson_progress    | 16607_17136_1_not_null         | id IS NOT NULL
+ lesson_progress    | 16607_17136_2_not_null         | user_id IS NOT NULL
+ lesson_progress    | 16607_17136_3_not_null         | lesson_id IS NOT NULL
+ lesson_progress    | 16607_17136_4_not_null         | completed IS NOT NULL
+ lesson_progress    | 16607_17136_6_not_null         | xp_awarded IS NOT NULL
+ lesson_progress    | 16607_17136_7_not_null         | time_spent_seconds IS NOT NULL
+ lesson_progress    | 16607_17136_8_not_null         | created_at IS NOT NULL
+ lesson_progress    | 16607_17136_9_not_null         | updated_at IS NOT NULL
+ lessons            | 16607_17076_10_not_null        | content_version IS NOT NULL
+ lessons            | 16607_17076_11_not_null        | created_at IS NOT NULL
+ lessons            | 16607_17076_12_not_null        | updated_at IS NOT NULL
+ lessons            | 16607_17076_1_not_null         | id IS NOT NULL
+ lessons            | 16607_17076_2_not_null         | module_id IS NOT NULL
+ lessons            | 16607_17076_3_not_null         | slug IS NOT NULL
+ lessons            | 16607_17076_4_not_null         | title IS NOT NULL
+ lessons            | 16607_17076_5_not_null         | content_md IS NOT NULL
+ lessons            | 16607_17076_6_not_null         | order_index IS NOT NULL
+ lessons            | 16607_17076_7_not_null         | xp_reward IS NOT NULL
+ lessons            | 16607_17076_8_not_null         | estimated_minutes IS NOT NULL
+ lessons            | 16607_17076_9_not_null         | is_published IS NOT NULL
+ lessons            | ck_lessons_xp_non_negative     | ((xp_reward >= 0))
+ modules            | 16607_17035_10_not_null        | created_at IS NOT NULL
+ modules            | 16607_17035_1_not_null         | id IS NOT NULL
+ modules            | 16607_17035_2_not_null         | slug IS NOT NULL
+ modules            | 16607_17035_3_not_null         | title IS NOT NULL
+ modules            | 16607_17035_4_not_null         | description IS NOT NULL
+ modules            | 16607_17035_5_not_null         | career_path IS NOT NULL
+ modules            | 16607_17035_6_not_null         | difficulty IS NOT NULL
+ modules            | 16607_17035_7_not_null         | order_index IS NOT NULL
+ modules            | 16607_17035_8_not_null         | xp_reward IS NOT NULL
+ modules            | 16607_17035_9_not_null         | is_published IS NOT NULL
+ modules            | ck_modules_order_non_negative  | ((order_index >= 0))
+ modules            | ck_modules_xp_non_negative     | ((xp_reward >= 0))
+ quiz_attempts      | 16607_17161_10_not_null        | quiz_content_version IS NOT NULL
+ quiz_attempts      | 16607_17161_11_not_null        | graded_at IS NOT NULL
+ quiz_attempts      | 16607_17161_12_not_null        | created_at IS NOT NULL
+ quiz_attempts      | 16607_17161_1_not_null         | id IS NOT NULL
+ quiz_attempts      | 16607_17161_2_not_null         | user_id IS NOT NULL
+ quiz_attempts      | 16607_17161_3_not_null         | quiz_id IS NOT NULL
+ quiz_attempts      | 16607_17161_4_not_null         | answers IS NOT NULL
+ quiz_attempts      | 16607_17161_5_not_null         | score IS NOT NULL
+ quiz_attempts      | 16607_17161_6_not_null         | passed IS NOT NULL
+ quiz_attempts      | 16607_17161_7_not_null         | status IS NOT NULL
+ quiz_attempts      | 16607_17161_8_not_null         | attempt_number IS NOT NULL
+ quiz_attempts      | 16607_17161_9_not_null         | xp_awarded IS NOT NULL
+ quiz_attempts      | ck_attempts_number_min         | ((attempt_number >= 1))
+ quiz_attempts      | ck_attempts_score_range        | (((score >= (0)::numeric) AND (score <= (100)::numeric)))
+ quiz_questions     | 16607_17181_1_not_null         | id IS NOT NULL
+ quiz_questions     | 16607_17181_2_not_null         | quiz_id IS NOT NULL
+ quiz_questions     | 16607_17181_3_not_null         | question_text IS NOT NULL
+ quiz_questions     | 16607_17181_4_not_null         | options IS NOT NULL
+ quiz_questions     | 16607_17181_5_not_null         | correct_option_id IS NOT NULL
+ quiz_questions     | 16607_17181_7_not_null         | points IS NOT NULL
+ quiz_questions     | 16607_17181_8_not_null         | order_index IS NOT NULL
+ quiz_questions     | 16607_17181_9_not_null         | content_version IS NOT NULL
+ quiz_questions     | ck_questions_min_points        | ((points >= 1))
+ quizzes            | 16607_17091_10_not_null        | content_version IS NOT NULL
+ quizzes            | 16607_17091_11_not_null        | is_published IS NOT NULL
+ quizzes            | 16607_17091_12_not_null        | created_at IS NOT NULL
+ quizzes            | 16607_17091_1_not_null         | id IS NOT NULL
+ quizzes            | 16607_17091_2_not_null         | module_id IS NOT NULL
+ quizzes            | 16607_17091_3_not_null         | slug IS NOT NULL
+ quizzes            | 16607_17091_4_not_null         | title IS NOT NULL
+ quizzes            | 16607_17091_6_not_null         | passing_score IS NOT NULL
+ quizzes            | 16607_17091_7_not_null         | max_attempts IS NOT NULL
+ quizzes            | 16607_17091_9_not_null         | xp_reward IS NOT NULL
+ quizzes            | ck_quizzes_min_attempts        | ((max_attempts >= 1))
+ quizzes            | ck_quizzes_passing_score_range | (((passing_score >= (0)::numeric) AND (passing_score <= (100)::numeric)))
+ quizzes            | ck_quizzes_xp_non_negative     | ((xp_reward >= 0))
+ user_profiles      | 16607_17108_1_not_null         | id IS NOT NULL
+ user_profiles      | 16607_17108_2_not_null         | user_id IS NOT NULL
+ user_profiles      | 16607_17108_5_not_null         | domain_scores IS NOT NULL
+ user_profiles      | 16607_17108_7_not_null         | onboarding_completed IS NOT NULL
+ user_profiles      | 16607_17108_8_not_null         | created_at IS NOT NULL
+ user_profiles      | 16607_17108_9_not_null         | updated_at IS NOT NULL
+ user_sessions      | 16607_17122_1_not_null         | id IS NOT NULL
+ user_sessions      | 16607_17122_2_not_null         | user_id IS NOT NULL
+ user_sessions      | 16607_17122_3_not_null         | jti IS NOT NULL
+ user_sessions      | 16607_17122_4_not_null         | issued_at IS NOT NULL
+ user_sessions      | 16607_17122_5_not_null         | expires_at IS NOT NULL
+ users              | 16607_17053_10_not_null        | created_at IS NOT NULL
+ users              | 16607_17053_11_not_null        | updated_at IS NOT NULL
+ users              | 16607_17053_1_not_null         | id IS NOT NULL
+ users              | 16607_17053_2_not_null         | email IS NOT NULL
+ users              | 16607_17053_3_not_null         | full_name IS NOT NULL
+ users              | 16607_17053_4_not_null         | hashed_password IS NOT NULL
+ users              | 16607_17053_5_not_null         | role IS NOT NULL
+ users              | 16607_17053_6_not_null         | is_active IS NOT NULL
+ users              | 16607_17053_7_not_null         | is_verified IS NOT NULL
+ users              | 16607_17053_8_not_null         | xp_total IS NOT NULL
+ users              | 16607_17053_9_not_null         | level IS NOT NULL
+ users              | ck_users_level_min             | ((level >= 1))
+ users              | ck_users_xp_non_negative       | ((xp_total >= 0))
+ xp_transactions    | 16607_17194_1_not_null         | id IS NOT NULL
+ xp_transactions    | 16607_17194_2_not_null         | user_id IS NOT NULL
+ xp_transactions    | 16607_17194_3_not_null         | amount IS NOT NULL
+ xp_transactions    | 16607_17194_4_not_null         | reason IS NOT NULL
+ xp_transactions    | 16607_17194_7_not_null         | created_at IS NOT NULL
+ xp_transactions    | ck_xp_amount_positive          | ((amount > 0))
+(106 rows)
+
+
+=== UNIQUE CONSTRAINTS ===
+     table_name     |            constraint_name             |    column_name     
+--------------------+----------------------------------------+--------------------
+ assessment_results | uq_assessment_user_domain              | user_id
+ assessment_results | uq_assessment_user_domain              | domain
+ lesson_progress    | uq_lesson_progress_user_lesson         | user_id
+ lesson_progress    | uq_lesson_progress_user_lesson         | lesson_id
+ lessons            | lessons_slug_key                       | slug
+ modules            | modules_slug_key                       | slug
+ quizzes            | quizzes_slug_key                       | slug
+ user_profiles      | user_profiles_user_id_key              | user_id
+ xp_transactions    | xp_transactions_lesson_progress_id_key | lesson_progress_id
+ xp_transactions    | xp_transactions_quiz_attempt_id_key    | quiz_attempt_id
+(10 rows)
+
+
+=== PRIMARY KEYS ===
+     table_name     |     constraint_name     | column_name 
+--------------------+-------------------------+-------------
+ alembic_version    | alembic_version_pkc     | version_num
+ assessment_results | assessment_results_pkey | id
+ lesson_progress    | lesson_progress_pkey    | id
+ lessons            | lessons_pkey            | id
+ modules            | modules_pkey            | id
+ quiz_attempts      | quiz_attempts_pkey      | id
+ quiz_questions     | quiz_questions_pkey     | id
+ quizzes            | quizzes_pkey            | id
+ user_profiles      | user_profiles_pkey      | id
+ user_sessions      | user_sessions_pkey      | id
+ users              | users_pkey              | id
+ xp_transactions    | xp_transactions_pkey    | id
+(12 rows)
+
+
+=== FOREIGN KEYS ===
+     table_name     |             constraint_name             |    column_name     | foreign_table_name | foreign_column_name 
+--------------------+-----------------------------------------+--------------------+--------------------+---------------------
+ assessment_results | assessment_results_user_id_fkey         | user_id            | users              | id
+ lesson_progress    | lesson_progress_lesson_id_fkey          | lesson_id          | lessons            | id
+ lesson_progress    | lesson_progress_user_id_fkey            | user_id            | users              | id
+ lessons            | lessons_module_id_fkey                  | module_id          | modules            | id
+ quiz_attempts      | quiz_attempts_quiz_id_fkey              | quiz_id            | quizzes            | id
+ quiz_attempts      | quiz_attempts_user_id_fkey              | user_id            | users              | id
+ quiz_questions     | quiz_questions_quiz_id_fkey             | quiz_id            | quizzes            | id
+ quizzes            | quizzes_module_id_fkey                  | module_id          | modules            | id
+ user_profiles      | user_profiles_user_id_fkey              | user_id            | users              | id
+ user_sessions      | user_sessions_user_id_fkey              | user_id            | users              | id
+ xp_transactions    | xp_transactions_lesson_progress_id_fkey | lesson_progress_id | lesson_progress    | id
+ xp_transactions    | xp_transactions_quiz_attempt_id_fkey    | quiz_attempt_id    | quiz_attempts      | id
+ xp_transactions    | xp_transactions_user_id_fkey            | user_id            | users              | id
+(13 rows)
+
+
+=== INDEXES ===
+     tablename      |               indexname                |                                                       indexdef                                                        
+--------------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------
+ alembic_version    | alembic_version_pkc                    | CREATE UNIQUE INDEX alembic_version_pkc ON public.alembic_version USING btree (version_num)
+ assessment_results | assessment_results_pkey                | CREATE UNIQUE INDEX assessment_results_pkey ON public.assessment_results USING btree (id)
+ assessment_results | uq_assessment_user_domain              | CREATE UNIQUE INDEX uq_assessment_user_domain ON public.assessment_results USING btree (user_id, domain)
+ lesson_progress    | lesson_progress_pkey                   | CREATE UNIQUE INDEX lesson_progress_pkey ON public.lesson_progress USING btree (id)
+ lesson_progress    | uq_lesson_progress_user_lesson         | CREATE UNIQUE INDEX uq_lesson_progress_user_lesson ON public.lesson_progress USING btree (user_id, lesson_id)
+ lessons            | lessons_pkey                           | CREATE UNIQUE INDEX lessons_pkey ON public.lessons USING btree (id)
+ lessons            | lessons_slug_key                       | CREATE UNIQUE INDEX lessons_slug_key ON public.lessons USING btree (slug)
+ modules            | modules_pkey                           | CREATE UNIQUE INDEX modules_pkey ON public.modules USING btree (id)
+ modules            | modules_slug_key                       | CREATE UNIQUE INDEX modules_slug_key ON public.modules USING btree (slug)
+ quiz_attempts      | ix_quiz_attempts_user_quiz             | CREATE INDEX ix_quiz_attempts_user_quiz ON public.quiz_attempts USING btree (user_id, quiz_id)
+ quiz_attempts      | quiz_attempts_pkey                     | CREATE UNIQUE INDEX quiz_attempts_pkey ON public.quiz_attempts USING btree (id)
+ quiz_questions     | quiz_questions_pkey                    | CREATE UNIQUE INDEX quiz_questions_pkey ON public.quiz_questions USING btree (id)
+ quizzes            | quizzes_pkey                           | CREATE UNIQUE INDEX quizzes_pkey ON public.quizzes USING btree (id)
+ quizzes            | quizzes_slug_key                       | CREATE UNIQUE INDEX quizzes_slug_key ON public.quizzes USING btree (slug)
+ user_profiles      | user_profiles_pkey                     | CREATE UNIQUE INDEX user_profiles_pkey ON public.user_profiles USING btree (id)
+ user_profiles      | user_profiles_user_id_key              | CREATE UNIQUE INDEX user_profiles_user_id_key ON public.user_profiles USING btree (user_id)
+ user_sessions      | ix_user_sessions_jti                   | CREATE UNIQUE INDEX ix_user_sessions_jti ON public.user_sessions USING btree (jti)
+ user_sessions      | ix_user_sessions_user_id_jti           | CREATE INDEX ix_user_sessions_user_id_jti ON public.user_sessions USING btree (user_id, jti)
+ user_sessions      | user_sessions_pkey                     | CREATE UNIQUE INDEX user_sessions_pkey ON public.user_sessions USING btree (id)
+ users              | ix_users_email                         | CREATE UNIQUE INDEX ix_users_email ON public.users USING btree (email)
+ users              | users_pkey                             | CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)
+ xp_transactions    | xp_transactions_lesson_progress_id_key | CREATE UNIQUE INDEX xp_transactions_lesson_progress_id_key ON public.xp_transactions USING btree (lesson_progress_id)
+ xp_transactions    | xp_transactions_pkey                   | CREATE UNIQUE INDEX xp_transactions_pkey ON public.xp_transactions USING btree (id)
+ xp_transactions    | xp_transactions_quiz_attempt_id_key    | CREATE UNIQUE INDEX xp_transactions_quiz_attempt_id_key ON public.xp_transactions USING btree (quiz_attempt_id)
+(24 rows)
+

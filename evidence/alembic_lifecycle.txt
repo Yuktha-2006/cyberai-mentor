@@ -1,0 +1,13 @@
+=== 1. ALEMBIC UPGRADE HEAD ===
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+
+=== 2. ALEMBIC DOWNGRADE BASE ===
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 2e738d0747c5 -> , initial_schema
+
+=== 3. ALEMBIC RE-UPGRADE HEAD ===
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 2e738d0747c5, initial_schema
