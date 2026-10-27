@@ -101,6 +101,18 @@ class AuthResponse(BaseModel):
     message: str
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _extract_token(request: Request) -> str | None:
+    """Extract JWT token from HttpOnly cookie or Authorization Bearer header."""
+    token = request.cookies.get(ACCESS_COOKIE)
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+    return token
+
+
 # ── Dependency: current user ──────────────────────────────────────────────────
 
 async def get_current_user(
@@ -111,12 +123,7 @@ async def get_current_user(
     Extract and validate JWT from HttpOnly cookie or Authorization Bearer header.
     Checks token signature, expiry, and server-side revocation.
     """
-    token = request.cookies.get(ACCESS_COOKIE)
-    if not token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header[7:].strip()
-
+    token = _extract_token(request)
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
@@ -288,21 +295,27 @@ async def logout(
     response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Revoke session and clear cookies."""
-    token = request.cookies.get(ACCESS_COOKIE)
-    if token:
-        try:
-            payload = decode_token(token)
-            jti = payload.get("jti", "")
-            if jti:
-                session_result = await db.execute(
-                    select(UserSession).where(UserSession.jti == jti)
-                )
-                session = session_result.scalar_one_or_none()
-                if session:
-                    session.revoked_at = datetime.now(timezone.utc)
-        except JWTError:
-            pass  # Token invalid — still clear cookies
+    """Revoke session and clear cookies. Requires active cookie or Bearer session."""
+    token = _extract_token(request)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    try:
+        payload = decode_token(token)
+        jti = payload.get("jti", "")
+        token_type = payload.get("type", "")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+    if not jti or token_type != "access":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token claims")
+
+    session_result = await db.execute(
+        select(UserSession).where(UserSession.jti == jti)
+    )
+    session = session_result.scalar_one_or_none()
+    if session:
+        session.revoked_at = datetime.now(timezone.utc)
 
     response.delete_cookie(ACCESS_COOKIE, path="/")
     response.delete_cookie(REFRESH_COOKIE, path="/")
