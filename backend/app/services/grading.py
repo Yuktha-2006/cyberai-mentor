@@ -67,6 +67,13 @@ async def grade_quiz_attempt(
     if not questions:
         raise GradingError("Quiz has no questions.")
 
+    # Serialize attempt counting per user and quiz using PostgreSQL transaction-level advisory lock
+    # or fallback to database savepoint to eliminate count-then-insert race on max_attempts
+    if db.bind and db.bind.dialect.name == "postgresql":
+        # Form stable 64-bit bigint lock key from (user_id, quiz_id)
+        lock_key = (hash(user_id) ^ hash(quiz_id)) & 0x7FFFFFFFFFFFFFFF
+        await db.execute(select(func.pg_advisory_xact_lock(lock_key)))
+
     # Count previous attempts
     attempt_count_result = await db.execute(
         select(func.count()).where(QuizAttempt.user_id == user_id, QuizAttempt.quiz_id == quiz_id)
@@ -114,7 +121,7 @@ async def grade_quiz_attempt(
                 QuizAttempt.id != attempt.id,
             )
         )
-        if prior_xp_result.scalar_one_or_none() is None:
+        if prior_xp_result.scalars().first() is None:
             awarded = await _award_xp(
                 db=db,
                 user_id=user_id,

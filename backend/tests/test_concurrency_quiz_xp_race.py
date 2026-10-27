@@ -340,11 +340,54 @@ class TestQuizXpRace:
                 )
                 all_attempts = cur.fetchall()
 
-        assert len(all_attempts) == CONCURRENCY, f"Expected {CONCURRENCY} total attempts, got {len(all_attempts)}"
+        # With max_attempts=3 on the quiz, only 3 attempts are allowed to be created
+        assert len(all_attempts) == 3, f"Expected 3 total attempts (max_attempts), got {len(all_attempts)}"
         awarded_count = sum(1 for a in all_attempts if a[3] is True)
         unawarded_count = sum(1 for a in all_attempts if a[3] is False)
         assert awarded_count == 1, f"Expected exactly 1 attempt with xp_awarded=True, got {awarded_count}"
-        assert unawarded_count == CONCURRENCY - 1, f"Expected {CONCURRENCY - 1} unawarded attempts, got {unawarded_count}"
+        assert unawarded_count == 2, f"Expected 2 unawarded attempts, got {unawarded_count}"
         for a in all_attempts:
             assert a[1] is not None and a[1] >= 70.0, f"Attempt {a[0]} missing score or not passed"
             assert a[2] is True, f"Attempt {a[0]} passed flag is not True"
+
+    @pytest.mark.asyncio
+    async def test_twenty_parallel_submissions_respects_max_attempts(
+        self, fresh_user, quiz_info
+    ):
+        """
+        20 parallel submissions simultaneously against a quiz with max_attempts=3
+        must produce exactly 3 attempts numbered 1, 2, and 3.
+        The remaining 17 calls must be cleanly rejected with MaxAttemptsExceededError.
+        """
+        engine = _make_engine()
+        try:
+            results = await asyncio.gather(
+                *[
+                    _one_grade_call(
+                        engine,
+                        fresh_user,
+                        quiz_info["quiz_id"],
+                        quiz_info["correct_answers"],
+                    )
+                    for _ in range(20)
+                ]
+            )
+        finally:
+            await engine.dispose()
+
+        with psycopg2.connect(DATABASE_URL_SYNC) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT attempt_number FROM quiz_attempts WHERE user_id = %s ORDER BY attempt_number",
+                    (str(fresh_user),),
+                )
+                attempts = [r[0] for r in cur.fetchall()]
+
+        from app.services.grading import MaxAttemptsExceededError
+        max_attempt_errs = [r for r in results if isinstance(r, MaxAttemptsExceededError)]
+        other_errs = [r for r in results if isinstance(r, Exception) and not isinstance(r, MaxAttemptsExceededError)]
+
+        assert len(attempts) == 3, f"Expected exactly 3 attempts, got {len(attempts)}"
+        assert attempts == [1, 2, 3], f"Attempt numbers collided or skipped: {attempts}"
+        assert len(max_attempt_errs) == 17, f"Expected 17 MaxAttemptsExceededError, got {len(max_attempt_errs)}"
+        assert len(other_errs) == 0, f"Unexpected server errors: {other_errs}"
