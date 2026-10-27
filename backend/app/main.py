@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 
 from app.config import get_settings
 from app.database import engine, Base
@@ -69,8 +70,13 @@ app.add_middleware(
 async def csrf_origin_validation(request: Request, call_next):
     """
     Enforce Origin validation on state-mutating HTTP methods (POST, PUT, PATCH, DELETE).
-    - If Origin header is present: must match allowed_origins; otherwise rejected with HTTP 403 Forbidden.
-    - If Origin header is absent (non-browser clients, mobile apps, curl): permitted.
+
+    SECURITY SCOPE (Browser-Only Protection):
+    - This middleware protects BROWSER clients by verifying the browser-enforced 'Origin' header.
+      Browsers automatically include 'Origin' on cross-origin requests; untrusted origins are rejected with 403.
+    - NON-BROWSER clients (such as mobile apps, native CLI tools, curl, backend microservices)
+      do not send an 'Origin' header by default and are permitted to execute.
+      Consequently, Origin checking serves specifically as CSRF mitigation, not general client authorization.
     """
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
         origin = request.headers.get("origin")
@@ -101,7 +107,25 @@ async def log_requests(request: Request, call_next):
     logger.info("→ %d", response.status_code)
     return response
 
-# ── Global error handler ─────────────────────────────────────────────────────
+# ── Global error handlers ─────────────────────────────────────────────────────
+@app.exception_handler(IntegrityError)
+async def integrity_error_handler(request: Request, exc: IntegrityError):
+    """
+    Explicitly log database integrity collisions (unique constraint violations, FK errors).
+    Monitors concurrency race collisions rather than allowing them to disappear into generic 500s.
+    """
+    logger.error(
+        "DATABASE INTEGRITY COLLISION on %s %s: %s (params: %s)",
+        request.method, request.url.path, getattr(exc, "orig", exc),
+        getattr(exc, "params", None),
+        exc_info=True
+    )
+    detail = "Database integrity collision" if not settings.is_production else "Internal server error"
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": detail},
+    )
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled error on %s %s", request.method, request.url.path)
