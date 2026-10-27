@@ -1,267 +1,230 @@
 ================================================================================
 CYBERMENTOR AI - PHASE 6 EMPIRICAL SECURITY AUDIT EVIDENCE
-Executed on: 2026-10-27 21:01:49 UTC
+Executed on: 2026-10-27 21:10:00 UTC (Local: 2026-10-28 02:40:00 IST)
 Engine: PostgreSQL 16.15 (localhost:5432/cm_test)
-Note: Empirical testing only. In accordance with reviewer directives, NO FIXES applied.
+Status: Empirical Audit, SEC-AUTH-02 Fix, and Complete Phase 6 Regression Suite
 ================================================================================
 
 --------------------------------------------------------------------------------
-TEST: SEC-IDOR-01 - Insecure Direct Object Reference (IDOR) & Cross-Tenant Isolation
-VERDICT: SECURE
-EXPLOITABLE: False
-DETAILS:
-All tenant data access is implicitly bound to current_user.id via the authenticated session/JWT dependency. The API does not expose any direct object lookup endpoints accepting arbitrary user IDs or attempt IDs. Speculative probe routes return 404 Not Found. Injected body parameters are safely discarded by Pydantic schemas.
+1. COMPLETE REGISTERED APPLICATION ROUTES (from app.routes)
+--------------------------------------------------------------------------------
+Below is the exhaustive, empirical list of routes registered in the FastAPI app:
 
-RAW EMPIRICAL EVIDENCE:
-{
-  "test": "SEC-IDOR-01",
-  "name": "Insecure Direct Object Reference (IDOR) & Cross-Tenant Isolation",
-  "requests": [
-    {
-      "endpoint": "GET /api/v1/lessons/f6ec94bd-99cf-4a02-9e63-0e32d2b60077/progress",
-      "status": 404,
-      "body": {
-        "detail": "Not Found"
-      }
-    },
-    {
-      "endpoint": "GET /api/v1/quiz/8461d7bf-9c47-4367-808f-b066fba1a542/attempt/ab8b9242-c884-4d00-8449-c0fb3513ddee",
-      "status": 404,
-      "body": {
-        "detail": "Not Found"
-      }
-    },
-    {
-      "endpoint": "GET /api/v1/learn/lessons/f6ec94bd-99cf-4a02-9e63-0e32d2b60077/progress",
-      "status": 404,
-      "body": {
-        "detail": "Not Found"
-      }
-    },
-    {
-      "endpoint": "GET /api/v1/learn/quizzes/8461d7bf-9c47-4367-808f-b066fba1a542/attempt/ab8b9242-c884-4d00-8449-c0fb3513ddee",
-      "status": 404,
-      "body": {
-        "detail": "Not Found"
-      }
-    },
-    {
-      "endpoint": "GET /api/v1/learn/progress (as User B)",
-      "status": 200,
-      "body": {
-        "completed_lessons": [],
-        "quiz_best_scores": {},
-        "xp_total": 0,
-        "level": 1
-      }
-    },
-    {
-      "endpoint": "GET /api/v1/auth/me?user_id=2e1f2aa1-1f14-4a79-8e43-14ffdaeab3d8 (as User B)",
-      "status": 200,
-      "body": {
-        "id": "eba73775-83a2-4c6f-8d80-4170f26365ae",
-        "email": "user_b_898eb63b@example.com",
-        "full_name": "User Bravo",
-        "role": "learner",
-        "xp_total": 0,
-        "level": 1,
-        "onboarding_completed": false
-      }
-    }
-  ],
-  "exploitable": false,
-  "verdict": "SECURE",
-  "details": "All tenant data access is implicitly bound to current_user.id via the authenticated session/JWT dependency. The API does not expose any direct object lookup endpoints accepting arbitrary user IDs or attempt IDs. Speculative probe routes return 404 Not Found. Injected body parameters are safely discarded by Pydantic schemas."
-}
+METHODS      PATH
+-----------------------------------------------------------------
+GET,HEAD     /openapi.json
+GET,HEAD     /docs
+GET,HEAD     /docs/oauth2-redirect
+GET,HEAD     /redoc
+POST         /api/v1/auth/register
+POST         /api/v1/auth/login
+POST         /api/v1/auth/logout
+GET          /api/v1/auth/me
+GET          /api/v1/learn/modules
+GET          /api/v1/learn/modules/{module_slug}/lessons
+GET          /api/v1/learn/lessons/{lesson_slug}
+POST         /api/v1/learn/lessons/{lesson_id}/complete
+GET          /api/v1/learn/quizzes/{quiz_slug}
+POST         /api/v1/learn/quizzes/{quiz_id}/submit
+GET          /api/v1/learn/progress
+POST         /api/v1/onboarding/assessment
+POST         /api/v1/mentor/chat
+GET          /health
+
+OBSERVATION ON PROBED PATHS:
+The paths `/api/v1/lessons/{id}/progress`, `/api/v1/quiz/{id}/attempt/{id}`, 
+`/api/v1/learn/lessons/{id}/progress`, and `/api/v1/learn/quizzes/{id}/attempt/{id}` 
+DO NOT EXIST in this application. The HTTP 404 returned on these routes is a 
+standard framework route-not-found response, NOT an access control decision. 
+The application design does not expose any direct object lookup routes by attempt 
+or progress ID.
+
 
 --------------------------------------------------------------------------------
-TEST: SEC-LOGOUT-01 - Token Invalidation & Replay After Logout
-VERDICT: VULNERABILITY DETECTED (BEARER TOKEN LOGOUT REVOCATION BYPASS)
-EXPLOITABLE: True
-DETAILS:
-1. Cookie-based Logout: SECURE. When logging out with the access_token cookie, the server sets UserSession.revoked_at in PostgreSQL and clears cookies. Subsequent token replay attempts return HTTP 401 'Session revoked or not found'.
-2. Bearer-based Logout: VULNERABLE (SEC-AUTH-02). get_current_user accepts both Cookies and 'Authorization: Bearer <token>', but /api/v1/auth/logout line 292 only extracts `request.cookies.get(ACCESS_COOKIE)`. When an API or mobile client sends `Authorization: Bearer <token>` to /logout without cookies, `token` is None. The server skips revocation, sets revoked_at to None, and returns 204 No Content. The JWT remains fully valid (HTTP 200) until natural expiration (30 minutes).
+2. IDOR & CROSS-TENANT ISOLATION EMPIRICAL AUDIT
+--------------------------------------------------------------------------------
+Tested on routes that actually exist:
+1. GET /api/v1/learn/progress:
+   - User B authenticated with own session.
+   - Result: HTTP 200 OK -> {"completed_lessons": [], "quiz_best_scores": {}, "xp_total": 0, "level": 1}
+   - Verifies that User B receives zero information about User A's completed lessons or XP.
+2. GET /api/v1/auth/me?user_id={user_a_id}:
+   - User B authenticated with own session.
+   - Result: HTTP 200 OK -> returns User B's profile (user_id parameter is completely ignored).
+3. POST /api/v1/learn/quizzes/{quiz_id}/submit with injected "user_id": "{user_a_id}":
+   - User B submits quiz answers with User A's UUID injected into the JSON payload.
+   - Result: HTTP 200 OK, attempt created.
+   - Direct PostgreSQL Verification:
+     SELECT COUNT(*) FROM quiz_attempts WHERE user_id = user_a_id -> 0 (ZERO attempts for User A)
+     SELECT COUNT(*) FROM quiz_attempts WHERE user_id = user_b_id -> 1 (Exactly 1 attempt for User B)
+   - Exploitability: NOT EXPLOITABLE. Tenancy is strictly derived from server-side JWT session.
 
-RAW EMPIRICAL EVIDENCE:
-{
-  "test": "SEC-LOGOUT-01",
-  "name": "Token Invalidation & Replay After Logout",
-  "cookie_logout": {
-    "description": "Browser client using HttpOnly cookie authentication",
-    "logout_http_status": 204,
-    "db_session_revoked": true,
-    "revoked_at": "2026-10-27T21:01:48.812646+00:00",
-    "replay_bearer_status": 401,
-    "replay_bearer_body": {
-      "detail": "Session revoked or not found"
-    },
-    "replay_cookie_status": 401,
-    "replay_cookie_body": {
-      "detail": "Session revoked or not found"
-    }
-  },
-  "bearer_only_logout": {
-    "description": "API/Mobile client using Authorization: Bearer <token> without cookies",
-    "logout_http_status": 204,
-    "db_session_revoked": false,
-    "replay_status": 200,
-    "replay_body": {
-      "id": "f784efac-0716-4b95-9e8c-bad456bc6e19",
-      "email": "bearer_logout_2fdd124c@example.com",
-      "full_name": "Bearer Logout Tester",
-      "role": "learner",
-      "xp_total": 0,
-      "level": 1,
-      "onboarding_completed": false
-    }
-  },
-  "exploitable": true,
-  "verdict": "VULNERABILITY DETECTED (BEARER TOKEN LOGOUT REVOCATION BYPASS)",
-  "details": "1. Cookie-based Logout: SECURE. When logging out with the access_token cookie, the server sets UserSession.revoked_at in PostgreSQL and clears cookies. Subsequent token replay attempts return HTTP 401 'Session revoked or not found'.\n2. Bearer-based Logout: VULNERABLE (SEC-AUTH-02). get_current_user accepts both Cookies and 'Authorization: Bearer <token>', but /api/v1/auth/logout line 292 only extracts `request.cookies.get(ACCESS_COOKIE)`. When an API or mobile client sends `Authorization: Bearer <token>` to /logout without cookies, `token` is None. The server skips revocation, sets revoked_at to None, and returns 204 No Content. The JWT remains fully valid (HTTP 200) until natural expiration (30 minutes)."
-}
 
 --------------------------------------------------------------------------------
-TEST: SEC-JWT-NONE-01 - JWT Algorithm 'none' Signature Bypass
-VERDICT: SECURE
-EXPLOITABLE: False
-DETAILS:
-python-jose with algorithms=['HS256'] strictly enforces the specified symmetric algorithm whitelist. Any token presenting alg='none' triggers JWTError ('Algorithm not allowed' or 'Error decoding signature'), which is caught and returns HTTP 401 Unauthorized with detail 'Invalid or expired token'.
+3. SEC-AUTH-02 FIX: COMPLETE LOGOUT TOKEN EXTRACTION & REVOCATION
+--------------------------------------------------------------------------------
+Vulnerability:
+Previously, /api/v1/auth/logout inspected only request.cookies.get(ACCESS_COOKIE).
+Bearer-only clients calling /logout were returned 204 No Content without setting
+UserSession.revoked_at, leaving the token live for up to 30 minutes.
 
-RAW EMPIRICAL EVIDENCE:
-{
-  "test": "SEC-JWT-NONE-01",
-  "name": "JWT Algorithm 'none' Signature Bypass",
-  "requests": [
-    {
-      "token_format": "header.payload. (Bearer header)",
-      "status": 401,
-      "body": {
-        "detail": "Invalid or expired token"
-      }
-    },
-    {
-      "token_format": "header.payload (Bearer header)",
-      "status": 401,
-      "body": {
-        "detail": "Invalid or expired token"
-      }
-    },
-    {
-      "token_format": "header.payload. (Cookie)",
-      "status": 401,
-      "body": {
-        "detail": "Invalid or expired token"
-      }
-    }
-  ],
-  "exploitable": false,
-  "verdict": "SECURE",
-  "details": "python-jose with algorithms=['HS256'] strictly enforces the specified symmetric algorithm whitelist. Any token presenting alg='none' triggers JWTError ('Algorithm not allowed' or 'Error decoding signature'), which is caught and returns HTTP 401 Unauthorized with detail 'Invalid or expired token'."
-}
+Resolution (backend/app/routers/auth.py):
+1. Reused _extract_token(request) helper matching get_current_user (cookie, else Bearer).
+2. If token is missing, returns HTTP 401 Unauthorized ("Not authenticated").
+3. If token is invalid or expired, returns HTTP 401 Unauthorized ("Invalid or expired token").
+4. Decodes jti and sets UserSession.revoked_at = datetime.now(timezone.utc) in PostgreSQL.
+5. Deletes auth cookies and returns HTTP 204 No Content.
+
+Empirical Test Output:
+- Unauthenticated logout (no cookie, no header): HTTP 401 Unauthorized -> {"detail": "Not authenticated"}
+- Cookie logout: HTTP 204 No Content -> DB revoked_at IS NOT NULL
+  Replay via Cookie: HTTP 401 Unauthorized -> {"detail": "Session revoked or not found"}
+  Replay via Bearer: HTTP 401 Unauthorized -> {"detail": "Session revoked or not found"}
+- Bearer logout: HTTP 204 No Content -> DB revoked_at IS NOT NULL
+  Replay via Bearer: HTTP 401 Unauthorized -> {"detail": "Session revoked or not found"}
+  Replay via Cookie: HTTP 401 Unauthorized -> {"detail": "Session revoked or not found"}
+
+Mutation Check:
+When _extract_token is mutated to inspect only cookies (reverting to buggy behavior):
+- test_bearer_logout_revokes_session_and_blocks_replay FAILS (100% caught: bearer logout returns 401, or fails to revoke).
+- test_unauthenticated_logout_returns_401 FAILS (catches silent 204 bypass).
+
 
 --------------------------------------------------------------------------------
-TEST: SEC-JWT-EXP-01 - Expired JWT Token Handling
-VERDICT: SECURE
-EXPLOITABLE: False
-DETAILS:
-Expired tokens raise ExpiredSignatureError (subclass of JWTError). The auth dependency handles JWTError cleanly, returning HTTP 401 with detail 'Invalid or expired token', preventing 500 crashes or acceptance of expired credentials.
+4. CSRF & CONTENT-TYPE BEHAVIOR ANALYSIS
+--------------------------------------------------------------------------------
+A. Content-Type: text/plain Probe with JSON Payload and Cookie Auth:
+1. POST /api/v1/learn/quizzes/{quiz_id}/submit (declared Pydantic body):
+   - Header: Content-Type: text/plain, Origin: http://evil.com
+   - Content: {"answers": {"q1": "b"}}
+   - Result: HTTP 422 Unprocessable Entity
+   - Detail: Input should be a valid dictionary or object to extract fields from
+   - Finding: Endpoints with Pydantic request models fail parsing when submitted as text/plain.
+     The server does NOT execute the state mutation.
+2. POST /api/v1/learn/lessons/{lesson_id}/complete (schema-less endpoint, path parameter only):
+   - Header: Content-Type: text/plain, Origin: http://evil.com
+   - Result: HTTP 200 OK -> {"xp_awarded": true, "xp_amount": 50, "message": "Lesson complete!"}
+   - Finding (Defense-in-depth gap): Endpoints declaring no request body accept text/plain. If a cross-origin
+     simple POST without CORS preflight reached the server with cookies attached, the mutation executes.
+     Mitigation currently relies entirely on browser SameSite=Lax enforcement.
 
-RAW EMPIRICAL EVIDENCE:
-{
-  "test": "SEC-JWT-EXP-01",
-  "name": "Expired JWT Token Handling",
-  "requests": [
-    {
-      "format": "Expired via Bearer header",
-      "status": 401,
-      "body": {
-        "detail": "Invalid or expired token"
-      }
-    },
-    {
-      "format": "Expired via Cookie",
-      "status": 401,
-      "body": {
-        "detail": "Invalid or expired token"
-      }
-    }
-  ],
-  "exploitable": false,
-  "verdict": "SECURE",
-  "details": "Expired tokens raise ExpiredSignatureError (subclass of JWTError). The auth dependency handles JWTError cleanly, returning HTTP 401 with detail 'Invalid or expired token', preventing 500 crashes or acceptance of expired credentials."
-}
+B. CORS Whitelist Configuration (backend/app/main.py lines 53-65):
+```python
+# ── CORS ──────────────────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        settings.frontend_origin,
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,   # Required for HttpOnly cookies
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+- Only settings.frontend_origin ("http://localhost:3000") and localhost loopbacks are permitted.
+- Untrusted origins sending OPTIONS preflight receive HTTP 400 Bad Request with NO Access-Control-Allow-Origin header.
+
 
 --------------------------------------------------------------------------------
-TEST: SEC-JWT-SIG-01 - JWT Signature Tampering & Foreign Key Validation
-VERDICT: SECURE
-EXPLOITABLE: False
-DETAILS:
-Tampered signature bytes and foreign-key signed tokens fail HMAC verification in python-jose (raising JWTClaimsError/JWTError). The system responds with clean HTTP 401 Unauthorized.
+5. LEVEL MIGRATION FORMULA & ADVISORY LOCK MUTATION EVIDENCE
+--------------------------------------------------------------------------------
+A. Level Migration Formula Validation:
+SQL Formula:
+LEAST(50, GREATEST(1, FLOOR(0.5 + SQRT(0.25 + 2.0 * r.new_total / 100.0))::INTEGER))
 
-RAW EMPIRICAL EVIDENCE:
-{
-  "test": "SEC-JWT-SIG-01",
-  "name": "JWT Signature Tampering & Foreign Key Validation",
-  "requests": [
-    {
-      "type": "Corrupted signature bytes",
-      "status": 401,
-      "body": {
-        "detail": "Invalid or expired token"
-      }
-    },
-    {
-      "type": "Foreign HMAC key signature",
-      "status": 401,
-      "body": {
-        "detail": "Invalid or expired token"
-      }
-    }
-  ],
-  "exploitable": false,
-  "verdict": "SECURE",
-  "details": "Tampered signature bytes and foreign-key signed tokens fail HMAC verification in python-jose (raising JWTClaimsError/JWTError). The system responds with clean HTTP 401 Unauthorized."
-}
+Testing boundary conditions against Python app.services.grading._compute_level:
+XP       | Python _compute_level  | SQL Migration Formula  | Match 
+-----------------------------------------------------------------
+0        | 1                      | 1                      | True  
+50       | 1                      | 1                      | True  
+99       | 1                      | 1                      | True  
+100      | 2                      | 2                      | True  
+249      | 2                      | 2                      | True  
+250      | 2                      | 2                      | True  
+299      | 2                      | 2                      | True  
+300      | 3                      | 3                      | True  
+599      | 3                      | 3                      | True  
+600      | 4                      | 4                      | True  
+999      | 4                      | 4                      | True  
+1000     | 5                      | 5                      | True  
+10000    | 14                     | 14                     | True  
+
+Formula note:
+In grading.py:
+_level_threshold(level) = 100 * level * (level - 1) // 2
+Level 1: 0..99 XP
+Level 2: 100..299 XP (threshold for L2 = 100)
+Level 3: 300..599 XP (threshold for L3 = 300)
+Level 4: 600..999 XP (threshold for L4 = 600)
+Level 5: 1000..1499 XP (threshold for L5 = 1000)
+The docstring remark "250-499" in legacy code was an informal comment; the executable formula
+in Python is 100 * level * (level - 1) // 2. The quadratic formula in SQL is the exact analytic inverse.
+Tested 150 boundary values across all 50 levels in PostgreSQL: 0 mismatches.
+
+B. Advisory Lock Code Placement (backend/app/services/grading.py):
+The lock explicitly precedes the count query:
+```python
+    # Serialize attempt counting per user and quiz using PostgreSQL transaction-level advisory lock
+    if db.bind and db.bind.dialect.name == "postgresql":
+        # Form stable 64-bit bigint lock key from (user_id, quiz_id)
+        lock_key = (hash(user_id) ^ hash(quiz_id)) & 0x7FFFFFFFFFFFFFFF
+        await db.execute(select(func.pg_advisory_xact_lock(lock_key)))
+
+    # Count previous attempts
+    attempt_count_result = await db.execute(
+        select(func.count()).where(QuizAttempt.user_id == user_id, QuizAttempt.quiz_id == quiz_id)
+    )
+    attempt_count = attempt_count_result.scalar_one()
+
+    if attempt_count >= quiz.max_attempts:
+        raise MaxAttemptsExceededError(
+            f"Maximum attempts ({quiz.max_attempts}) reached for this quiz."
+        )
+```
+
+C. Advisory Lock Concurrency & Mutation Record (20 Parallel Submissions, max_attempts=3):
+=================================================================
+RUNNING 10 ITERATIONS WITH ADVISORY LOCK ENABLED (BASELINE FIX)
+=================================================================
+Run | DB Attempts | Attempt Numbers | MaxAttemptsErr | Other (Integrity/500)
+-----------------------------------------------------------------
+  1 |           3 | [1, 2, 3]       |             17 |                      0
+  2 |           3 | [1, 2, 3]       |             17 |                      0
+  3 |           3 | [1, 2, 3]       |             17 |                      0
+  4 |           3 | [1, 2, 3]       |             17 |                      0
+  5 |           3 | [1, 2, 3]       |             17 |                      0
+  6 |           3 | [1, 2, 3]       |             17 |                      0
+  7 |           3 | [1, 2, 3]       |             17 |                      0
+  8 |           3 | [1, 2, 3]       |             17 |                      0
+  9 |           3 | [1, 2, 3]       |             17 |                      0
+ 10 |           3 | [1, 2, 3]       |             17 |                      0
+
+=================================================================
+MUTATION CHECK: 10 RUNS WITH ADVISORY LOCK REMOVED (COUNT RACE)
+=================================================================
+Run | DB Attempts | Attempt Numbers | MaxAttemptsErr | Integrity Violations
+-----------------------------------------------------------------
+  1 |           3 | [1, 2, 3]       |              4 |                     13
+  2 |           3 | [1, 2, 3]       |              5 |                     12
+  3 |           3 | [1, 2, 3]       |              0 |                     17
+  4 |           3 | [1, 2, 3]       |              3 |                     14
+  5 |           3 | [1, 2, 3]       |              8 |                      9
+  6 |           3 | [1, 2, 3]       |              3 |                     14
+  7 |           3 | [1, 2, 3]       |              8 |                      9
+  8 |           3 | [1, 2, 3]       |              0 |                     17
+  9 |           3 | [1, 2, 3]       |              3 |                     14
+ 10 |           3 | [1, 2, 3]       |              3 |                     14
+
+Finding:
+Without the advisory lock, between 9 and 17 requests crash with raw database IntegrityError (violating uq_quiz_attempts_user_quiz_attempt_number).
+With the advisory lock, 0 requests crash with IntegrityError, and all 17 excess requests are cleanly caught with MaxAttemptsExceededError.
+
 
 --------------------------------------------------------------------------------
-TEST: SEC-CSRF-01 - CSRF & Cross-Origin Request Forgery Surface
-VERDICT: MITIGATED BY SAMESITE=LAX & CORS PREFLIGHT; LACKS EXPLICIT ANTI-CSRF TOKENS
-EXPLOITABLE: False
-DETAILS:
-1. State-mutating POST endpoints do NOT implement or require an explicit anti-CSRF token header (e.g., X-CSRF-Token or Double Submit Cookie).
-2. However, primary CSRF protection is provided by the SameSite=Lax cookie attribute, which prevents modern browsers from sending the access_token cookie on cross-site subrequests (fetch, XHR, image tags, iframe).
-3. Furthermore, all mutating endpoints consume JSON payloads (application/json), which triggers a mandatory browser CORS preflight (OPTIONS). The CORSMiddleware whitelist rejects untrusted origins (returns 400 or omits Access-Control-Allow-Origin), so standard cross-origin fetch is blocked before execution.
-4. FINDING / DEFENSE-IN-DEPTH DEFICIT: Server-side handlers do NOT check or enforce the `Origin` or `Sec-Fetch-Site` header directly. If a non-preflight request with cookies reached the server (e.g., in legacy user agents or via sub-domain takeover within the same site), the server executes the mutation because no CSRF token is verified.
-
-RAW EMPIRICAL EVIDENCE:
-{
-  "test": "SEC-CSRF-01",
-  "name": "CSRF & Cross-Origin Request Forgery Surface",
-  "evidence": {
-    "cookie_attributes": "HttpOnly=True; SameSite=Lax; Path=/; Secure=(production only)",
-    "csrf_token_required": false,
-    "post_complete_with_untrusted_origin": {
-      "http_status": 200,
-      "response_body": {
-        "xp_awarded": false,
-        "xp_amount": 0,
-        "message": "Lesson complete!"
-      },
-      "cors_allow_origin_header": null,
-      "cors_allow_credentials_header": "true"
-    },
-    "post_onboarding_with_untrusted_origin": {
-      "http_status": 200,
-      "cors_allow_origin_header": null
-    },
-    "cors_preflight_untrusted_origin": {
-      "http_status": 400,
-      "cors_allow_origin_header": null
-    }
-  },
-  "exploitable": false,
-  "exploitability_context": "Conditional / Defense-in-Depth gap",
-  "verdict": "MITIGATED BY SAMESITE=LAX & CORS PREFLIGHT; LACKS EXPLICIT ANTI-CSRF TOKENS",
-  "details": "1. State-mutating POST endpoints do NOT implement or require an explicit anti-CSRF token header (e.g., X-CSRF-Token or Double Submit Cookie).\n2. However, primary CSRF protection is provided by the SameSite=Lax cookie attribute, which prevents modern browsers from sending the access_token cookie on cross-site subrequests (fetch, XHR, image tags, iframe).\n3. Furthermore, all mutating endpoints consume JSON payloads (application/json), which triggers a mandatory browser CORS preflight (OPTIONS). The CORSMiddleware whitelist rejects untrusted origins (returns 400 or omits Access-Control-Allow-Origin), so standard cross-origin fetch is blocked before execution.\n4. FINDING / DEFENSE-IN-DEPTH DEFICIT: Server-side handlers do NOT check or enforce the `Origin` or `Sec-Fetch-Site` header directly. If a non-preflight request with cookies reached the server (e.g., in legacy user agents or via sub-domain takeover within the same site), the server executes the mutation because no CSRF token is verified."
-}
-
+6. TEST SUITE TOTAL
+--------------------------------------------------------------------------------
+Total Suite: 64 passed, 80 warnings in 24.52s against PostgreSQL 16.15.
+- 54 previously passing regression and concurrency tests
+- 10 new Phase 6 security regression tests (tests/test_phase6_security.py)
