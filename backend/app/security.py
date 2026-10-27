@@ -31,6 +31,10 @@ def hash_password(plain_password: str) -> str:
     return _hasher.hash(plain_password)
 
 
+# Precomputed valid dummy hash for constant-time authentication on non-existent users
+DUMMY_HASH: str = hash_password("dummy_password_for_constant_time_verification")
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verify a password against its hash.

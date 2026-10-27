@@ -7,10 +7,8 @@ from pathlib import Path
 backend_dir = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(backend_dir))
 
-from app.security import verify_password, hash_password
+from app.security import verify_password, hash_password, DUMMY_HASH
 
-# Defined in backend/app/routers/auth.py:236
-DUMMY_HASH = "$argon2id$v=19$m=65536,t=3,p=4$dummysalthere$dummyhashvaluethatislong"
 REAL_HASH = hash_password("ValidUserPassword123!")
 
 def run_benchmark(n: int = 30):
