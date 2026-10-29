@@ -83,7 +83,7 @@ export default function MentorPage() {
     if (!text.trim() || thinking) return
 
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: `m${messages.length + 1}`,
       role: 'user',
       content: text.trim(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -117,7 +117,7 @@ export default function MentorPage() {
 
       const data = await res.json()
       const botMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `${userMsg.id}-assistant`,
         role: 'assistant',
         content: data.reply,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -131,7 +131,7 @@ export default function MentorPage() {
     } catch {
       toast.error('Network error communicating with agent.')
       const fallbackMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `${userMsg.id}-assistant`,
         role: 'assistant',
         content: "I could not communicate with the backend service. Please verify that the FastAPI backend is running on port 8000.",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

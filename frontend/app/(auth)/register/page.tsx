@@ -16,7 +16,7 @@ const schema = z.object({
     .regex(/[A-Z]/, 'Must contain an uppercase letter')
     .regex(/[0-9]/, 'Must contain a number'),
   confirm_password: z.string(),
-  agreed: z.literal(true, { errorMap: () => ({ message: 'You must accept the terms' }) }),
+  agreed: z.literal(true, { error: 'You must accept the terms' }),
 }).refine(d => d.password === d.confirm_password, {
   message: "Passwords don't match",
   path: ['confirm_password'],
@@ -50,7 +50,7 @@ export default function RegisterPage() {
     const result = schema.safeParse({ ...form, agreed: form.agreed || undefined })
     if (!result.success) {
       const fieldErrors: Record<string, string> = {}
-      result.error.errors.forEach(err => {
+      result.error.issues.forEach(err => {
         if (err.path[0]) fieldErrors[err.path[0] as string] = err.message
       })
       setErrors(fieldErrors)

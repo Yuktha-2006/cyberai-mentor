@@ -54,10 +54,7 @@ def clean_database_between_tests():
     if os.environ.get("ALLOW_SQLITE_TESTS") == "1":
         yield
         return
-    sync_url = os.environ.get(
-        "DATABASE_URL_SYNC", 
-        "postgresql://postgres:sandeep%402004@localhost:5432/cm_test"
-    )
+    sync_url = settings.database_url_sync
     with psycopg2.connect(sync_url) as conn:
         with conn.cursor() as cur:
             cur.execute(

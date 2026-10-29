@@ -42,7 +42,7 @@ CyberMentor AI is a production-minded cybersecurity learning platform and cyber 
 1. **Deterministic Evaluation Guarantee**:
    - Assessment scoring and grading are calculated strictly on the backend.
    - Question answer keys and explanations are **never** exposed in client-facing quiz payloads.
-   - The AI mentor provides educational guidance and explanation — it is cryptographically barred from issuing grades or altering XP records.
+   - The AI mentor provides educational guidance and explanation — it is architecturally isolated from issuing grades or altering XP records.
 
 2. **Idempotent Anti-Replay XP System**:
    - XP is awarded through structured `XPTransaction` records guarded by `UniqueConstraint` and atomic check flags.
@@ -75,9 +75,7 @@ CyberMentor AI is a production-minded cybersecurity learning platform and cyber 
 ## 🛠️ Verification & Test Suite
 
 ### Backend Test Results (`pytest`)
-All 26 automated unit and integration tests passing:
-- **12/12** Argon2id hashing, salting, timing attack resistance, and JWT tamper/roundtrip tests.
-- **14/14** Deterministic grading, level calculation, score boundary validation, and max-attempt enforcement tests.
+All 46 automated unit, integration, and adversarial tests pass when run against PostgreSQL.
 
 Run tests:
 ```powershell

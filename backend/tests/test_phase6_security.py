@@ -24,7 +24,7 @@ from app.database import AsyncSessionLocal
 from app.models import User, UserSession, Lesson, Quiz, QuizQuestion, QuizAttempt, LessonProgress
 
 settings = get_settings()
-SYNC_URL = os.environ.get("DATABASE_URL_SYNC", "postgresql://postgres:sandeep%402004@localhost:5432/cm_test")
+SYNC_URL = settings.database_url_sync
 
 
 def b64url(data: bytes) -> str:
