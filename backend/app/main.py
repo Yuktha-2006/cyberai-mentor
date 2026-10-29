@@ -54,7 +54,11 @@ app = FastAPI(
 # ── CORS ──────────────────────────────────────────────────────────────────────
 allowed_origins = [settings.frontend_origin]
 if not settings.is_production:
-    allowed_origins.extend(["http://localhost:3000", "http://127.0.0.1:3000"])
+    allowed_origins.extend([
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+    ])
 allowed_origins = list(dict.fromkeys(allowed_origins))
 
 app.add_middleware(
