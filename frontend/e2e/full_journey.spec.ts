@@ -89,6 +89,7 @@ test('all static page links target a route or an existing landing-page section, 
 })
 
 test('completes a real learner journey without CORS, 400, or 500 API errors', async ({ page }) => {
+  test.skip(!!process.env.CI, 'Requires a local backend and database');
   test.setTimeout(180_000)
 
   const apiOrigin = 'http://localhost:8000'
