@@ -26,6 +26,9 @@ htmlcov/
 node_modules/
 .next/
 out/
+frontend/test-results/
+frontend/playwright-report/
+frontend/next-env.d.ts
 *.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
