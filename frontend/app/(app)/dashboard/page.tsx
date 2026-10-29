@@ -127,7 +127,7 @@ export default function DashboardPage() {
   const handleLogout = async () => {
     try {
       await auth.logout()
-      router.push('/')
+      router.push('/login')
     } catch {
       toast.error('Logout failed.')
     }

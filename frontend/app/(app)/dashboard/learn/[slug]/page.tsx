@@ -35,19 +35,15 @@ export default function ModuleDetailPage() {
         const lessonsData = await learn.lessons(slug)
         setLessons(lessonsData)
 
-        // Find associated quiz if available
-        // Usually matching quiz slug or fetched via quiz endpoint
+        const quizSlugByModule: Record<string, string> = {
+          'network-defense-fundamentals': 'network-defense-quiz',
+          'web-application-security': 'web-security-quiz',
+        }
+        const quizSlug = quizSlugByModule[slug] ?? `${slug}-quiz`
         try {
-          const quizData = await learn.quiz(slug.replace('-fundamentals', '-quiz').replace('defense', 'defense-quiz').replace('application', 'security-quiz'))
-          setQuiz(quizData)
+          setQuiz(await learn.quiz(quizSlug))
         } catch {
-          // If named differently, try matching quiz slug
-          try {
-            const fallbackQuiz = await learn.quiz(slug + '-quiz')
-            setQuiz(fallbackQuiz)
-          } catch {
-            // Quiz may not exist yet for this module
-          }
+          setQuiz(null)
         }
       } catch (err) {
         if (err instanceof ApiError) {

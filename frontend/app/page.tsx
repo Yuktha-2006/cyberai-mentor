@@ -57,8 +57,38 @@ const testimonials = [
   { name: 'Aisha Okonkwo', role: 'IT Manager → AppSec Engineer', co: 'FinTech Startup', body: 'The Application Security pathway was exactly what I needed for my transition. Clear, structured, and practical.', av: 'AO' },
 ]
 
+const footerGroups = [
+  {
+    title: 'Product',
+    links: [
+      { label: 'Features', href: '#features' },
+      { label: 'Career Paths', href: '#careers' },
+      { label: 'Labs', href: '#labs' },
+      { label: 'Pricing', href: '#pricing' },
+    ],
+  },
+  {
+    title: 'Project',
+    links: [
+      { label: 'About', href: '#journey-h2' },
+      { label: 'Source Code', href: 'https://github.com/Yuktha-2006/cyberai-mentor' },
+      { label: 'Security Model', href: 'https://github.com/Yuktha-2006/cyberai-mentor/blob/main/THREAT_MODEL.md' },
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      { label: 'Privacy Policy', href: '/privacy' },
+      { label: 'Terms of Service', href: '/terms' },
+      { label: 'Forgot Password', href: '/forgot-password' },
+    ],
+  },
+]
+
 export default function LandingPage() {
   const [open, setOpen] = useState(false)
+  const [previewAction, setPreviewAction] = useState('')
+  const [phishingAnswer, setPhishingAnswer] = useState('')
 
   return (
     <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: '#0a0f1e', color: '#f1f5f9' }}>
@@ -154,9 +184,19 @@ export default function LandingPage() {
                   </div>
                   <div className="flex gap-2 pt-1">
                     {['Block IP','Notify Admin','View Logs'].map((a,i) => (
-                      <button key={a} className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${i===0 ? 'text-cyan-400' : 'text-slate-400 hover:bg-white/10'}`} style={i===0 ? { background:'rgba(6,182,212,0.15)', border:'1px solid rgba(6,182,212,0.3)' } : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>{a}</button>
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => setPreviewAction(a)}
+                        aria-pressed={previewAction === a}
+                        className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${i===0 ? 'text-cyan-400' : 'text-slate-400 hover:bg-white/10'}`}
+                        style={i===0 ? { background:'rgba(6,182,212,0.15)', border:'1px solid rgba(6,182,212,0.3)' } : { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}
+                      >
+                        {a}
+                      </button>
                     ))}
                   </div>
+                  {previewAction && <p role="status" className="text-xs text-cyan-300">Demo action selected: {previewAction}</p>}
                 </div>
                 <div className="absolute -top-3 -right-3 rounded-full px-3 py-1.5 text-xs font-bold text-white shadow-lg" style={{ background: 'linear-gradient(135deg,#f59e0b,#ea580c)' }}>+50 XP</div>
               </div>
@@ -306,10 +346,11 @@ export default function LandingPage() {
                     </div>
                   </div>
                   <div className="flex gap-2" role="group" aria-label="Lab actions">
-                    <button className="px-3 py-1.5 rounded-lg text-rose-400 text-xs transition-colors" style={{ background:'rgba(244,63,94,0.15)', border:'1px solid rgba(244,63,94,0.3)' }}>Mark Phishing</button>
-                    <button className="px-3 py-1.5 rounded-lg text-slate-400 text-xs" style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>Legitimate</button>
-                    <button className="px-3 py-1.5 rounded-lg text-slate-400 text-xs" style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>Need Hint</button>
+                    <button type="button" onClick={() => setPhishingAnswer('Correct: indicators show this is a phishing attempt.')} className="px-3 py-1.5 rounded-lg text-rose-400 text-xs transition-colors" style={{ background:'rgba(244,63,94,0.15)', border:'1px solid rgba(244,63,94,0.3)' }}>Mark Phishing</button>
+                    <button type="button" onClick={() => setPhishingAnswer('Review the sender domain and destination URL before classifying this message.')} className="px-3 py-1.5 rounded-lg text-slate-400 text-xs" style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>Legitimate</button>
+                    <button type="button" onClick={() => setPhishingAnswer('Hint: check the lookalike sender domain, suspicious redirect, and urgency language.')} className="px-3 py-1.5 rounded-lg text-slate-400 text-xs" style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>Need Hint</button>
                   </div>
+                  {phishingAnswer && <p role="status" className="text-xs text-cyan-300">{phishingAnswer}</p>}
                 </div>
               </motion.div>
             </div>
@@ -372,11 +413,11 @@ export default function LandingPage() {
               </Link>
               <p className="text-slate-500 text-sm leading-relaxed">AI-powered cybersecurity education. Learn, practice, and grow into your security career.</p>
             </div>
-            {[['Product',['Features','Career Paths','Labs','Pricing']],['Company',['About','Blog','Careers','Contact']],['Legal',['Privacy Policy','Terms of Service','Security']]].map(([title, links]) => (
-              <div key={title as string}>
-                <h4 className="font-semibold text-white mb-4 text-sm">{title as string}</h4>
+            {footerGroups.map(group => (
+              <div key={group.title}>
+                <h4 className="font-semibold text-white mb-4 text-sm">{group.title}</h4>
                 <ul className="space-y-2">
-                  {(links as string[]).map(l => <li key={l}><a href="#" className="text-slate-500 hover:text-cyan-400 text-sm transition-colors">{l}</a></li>)}
+                  {group.links.map(link => <li key={link.label}><a href={link.href} className="text-slate-500 hover:text-cyan-400 text-sm transition-colors">{link.label}</a></li>)}
                 </ul>
               </div>
             ))}
